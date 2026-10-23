@@ -752,3 +752,857 @@ kbd{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);bord
 
 
 
+/* ========================================================
+   PHASE 1 & 2: HOLOGRAPHIC PLAYER CARDS, VS SPLASH,
+   RESULT CEREMONY & ARCADE OS HUB
+   ======================================================== */
+
+.hudLevelBtn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  height: auto;
+  min-width: 0;
+  cursor: pointer;
+}
+.lvChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px 3px 6px;
+  border-radius: 99px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
+  border: 1px solid var(--c2, #54e0ee);
+  font-size: 11px;
+  font-weight: 800;
+  color: #fff;
+  box-shadow: 0 0 12px rgba(84,224,238,0.2);
+}
+.lvChip b {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 99px;
+  background: linear-gradient(135deg, var(--c1, #ff4d9a), var(--c2, #35e0ff));
+  color: #0b0a14;
+  font-size: 10px;
+  font-weight: 800;
+}
+.lvBar {
+  width: 38px;
+  height: 5px;
+  border-radius: 99px;
+  background: rgba(255,255,255,0.14);
+  overflow: hidden;
+}
+.lvBar i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--c1, #ff4d9a), var(--c2, #35e0ff));
+  border-radius: 99px;
+  transition: width 0.35s ease;
+}
+
+.hudArcadeBtn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 99px;
+  background: linear-gradient(135deg, rgba(255,184,74,0.22), rgba(255,77,154,0.2));
+  border: 1px solid rgba(255,184,74,0.65);
+  color: var(--gold);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.7px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.hudArcadeBtn:hover {
+  background: var(--gold);
+  color: #1a1100;
+  box-shadow: 0 0 16px rgba(255,184,74,0.5);
+}
+.questBadgeDot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #5fe08a;
+  color: #071b0e;
+  font-size: 10px;
+  font-weight: 900;
+  box-shadow: 0 0 8px #5fe08a;
+}
+
+.phoneExtrasDrawer {
+  margin-top: 8px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  padding-top: 8px;
+}
+.phoneExtrasDrawer summary {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--mute);
+  cursor: pointer;
+  user-select: none;
+}
+.phoneExtrasDrawer summary:hover {
+  color: var(--cyan);
+}
+
+/* ---------- Holographic Player Card ---------- */
+.pCard {
+  --mx: 50%;
+  --my: 50%;
+  width: 290px;
+  perspective: 950px;
+  user-select: none;
+}
+.pCard.compact {
+  width: 230px;
+}
+.pCardInner {
+  position: relative;
+  border-radius: 20px;
+  padding: 14px 14px 16px;
+  background:
+    radial-gradient(circle at var(--mx) var(--my), rgba(255,255,255,0.16), transparent 55%),
+    linear-gradient(155deg, rgba(22,26,48,0.96) 0%, rgba(11,13,26,0.98) 65%, rgba(26,18,46,0.96) 100%);
+  border: 2px solid var(--c2, #54e0ee);
+  box-shadow:
+    0 18px 48px rgba(0,0,0,0.72),
+    0 0 28px color-mix(in srgb, var(--c1, #ff4d9a) 35%, transparent),
+    inset 0 0 24px color-mix(in srgb, var(--c2, #35e0ff) 22%, transparent);
+  transform-style: preserve-3d;
+  transition: transform 0.14s ease-out, box-shadow 0.2s ease;
+  overflow: hidden;
+}
+.pcFoil {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: conic-gradient(
+    from 120deg at var(--mx) var(--my),
+    rgba(255,77,154,0.14),
+    rgba(53,224,255,0.16),
+    rgba(255,184,74,0.14),
+    rgba(95,224,138,0.14),
+    rgba(163,123,255,0.16),
+    rgba(255,77,154,0.14)
+  );
+  mix-blend-mode: screen;
+  opacity: 0.75;
+}
+.pcShine {
+  position: absolute;
+  inset: -40%;
+  pointer-events: none;
+  background: linear-gradient(115deg, transparent 42%, rgba(255,255,255,0.22) 50%, transparent 58%);
+  transform: translateX(calc((var(--mx) - 50%) * 0.4));
+}
+.pcTop {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.pcLevel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--c1), var(--c2));
+  color: #0b0a14;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.45);
+}
+.pcLevel b {
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1;
+}
+.pcLevel span {
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+.pcTag {
+  padding: 3px 9px;
+  border-radius: 99px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.18);
+  color: var(--ink);
+}
+.pcRank {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-size: 9px;
+  font-weight: 800;
+  color: var(--rc, #ffb84a);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+.pcPortrait {
+  position: relative;
+  z-index: 2;
+  height: 162px;
+  margin: 4px auto 6px;
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 50% 38%, color-mix(in srgb, var(--c2) 32%, transparent), transparent 68%),
+    rgba(8,10,20,0.65);
+  border: 1px solid rgba(255,255,255,0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.pCard.compact .pcPortrait {
+  height: 138px;
+}
+.pcPortrait img {
+  height: 108%;
+  width: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 16px rgba(0,0,0,0.65));
+}
+.pcNoImg svg {
+  width: 56px;
+  height: 56px;
+  color: var(--mute);
+}
+.pcName {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: #fff;
+}
+.pcName small {
+  margin-left: 6px;
+  color: var(--cyan);
+  font-size: 11px;
+}
+.pcTierLine {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--mute);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin: 4px 2px 6px;
+}
+.pcXp {
+  position: relative;
+  z-index: 2;
+  height: 5px;
+  border-radius: 99px;
+  background: rgba(255,255,255,0.12);
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+.pcXp div {
+  height: 100%;
+  background: linear-gradient(90deg, var(--c1), var(--c2));
+  border-radius: 99px;
+}
+.pcStats {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  padding: 8px;
+  border-radius: 12px;
+  background: rgba(0,0,0,0.34);
+  border: 1px solid rgba(255,255,255,0.07);
+  text-align: center;
+  margin-bottom: 8px;
+}
+.pcStats b {
+  display: block;
+  font-size: 14px;
+  font-weight: 800;
+  color: #fff;
+}
+.pcStats span {
+  font-size: 9px;
+  color: var(--mute);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.pcRows {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+.pcRow {
+  display: grid;
+  grid-template-columns: 18px 1fr auto 42px;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.04);
+  font-size: 11px;
+}
+.pcRowIcon svg {
+  width: 14px;
+  height: 14px;
+  color: var(--cyan);
+  display: block;
+}
+.pcRowName {
+  font-weight: 700;
+  color: var(--ink);
+}
+.pcRowVal {
+  font-weight: 800;
+  color: #fff;
+}
+.pcRowVal i {
+  font-style: normal;
+  color: var(--mute);
+  font-weight: 600;
+}
+.pcRowWr {
+  text-align: right;
+  font-weight: 800;
+  color: var(--gold);
+}
+.pcTrophies {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+.pcTrophy {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: rgba(255,255,255,0.05);
+  border: 1px dashed rgba(255,255,255,0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255,255,255,0.22);
+}
+.pcTrophy.has {
+  background: rgba(255,184,74,0.18);
+  border: 1px solid var(--gold);
+  color: var(--gold);
+  box-shadow: 0 0 12px rgba(255,184,74,0.35);
+}
+.pcTrophy svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Card Modal */
+#cardModal {
+  position: fixed;
+  inset: 0;
+  z-index: 160;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.cardModalBackdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(6, 8, 18, 0.72);
+  backdrop-filter: blur(8px);
+}
+.cardModalBox {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  animation: cardPopIn 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes cardPopIn {
+  from { opacity: 0; transform: scale(0.88) translateY(14px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+.cardModalActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* ---------- VS Walk-out Splash ---------- */
+#vsOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.28s ease;
+}
+#vsOverlay.in {
+  opacity: 1;
+}
+#vsOverlay.out {
+  opacity: 0;
+}
+.vsWrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(18px, 5vw, 64px);
+  background: radial-gradient(circle at 50% 50%, rgba(28,16,56,0.92), rgba(6,5,14,0.96));
+  overflow: hidden;
+}
+.vsStreak {
+  position: absolute;
+  inset: -20%;
+  background: linear-gradient(115deg, transparent 46%, rgba(255,77,154,0.28) 49%, rgba(53,224,255,0.32) 51%, transparent 54%);
+  animation: vsFlash 1.8s ease-out infinite;
+}
+@keyframes vsFlash {
+  0%   { transform: translateX(-18%) scale(1); }
+  100% { transform: translateX(18%) scale(1.05); }
+}
+.vsSide {
+  position: relative;
+  z-index: 2;
+  transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.vsLeft {
+  animation: vsSlideL 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.vsRight {
+  animation: vsSlideR 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes vsSlideL {
+  from { opacity: 0; transform: translateX(-120px) rotate(-6deg); }
+  to   { opacity: 1; transform: translateX(0) rotate(-2deg); }
+}
+@keyframes vsSlideR {
+  from { opacity: 0; transform: translateX(120px) rotate(6deg); }
+  to   { opacity: 1; transform: translateX(0) rotate(2deg); }
+}
+.vsMid {
+  position: relative;
+  z-index: 3;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.vsIcon svg {
+  width: 38px;
+  height: 38px;
+  color: var(--cyan);
+}
+.vsText {
+  font-size: 54px;
+  font-weight: 900;
+  letter-spacing: 3px;
+  background: linear-gradient(135deg, #ffb84a, #ff4d9a, #54e0ee);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 0 32px rgba(255,77,154,0.45);
+}
+.vsGame {
+  font-size: 15px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.vsSub {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: 0.8px;
+}
+
+/* ---------- Result Ceremony ---------- */
+#resultOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 210;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(6, 8, 18, 0.78);
+  backdrop-filter: blur(10px);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+#resultOverlay.in {
+  opacity: 1;
+}
+#resultOverlay .confetti {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.resWrap {
+  position: relative;
+  z-index: 2;
+}
+.resCard {
+  position: relative;
+  width: min(420px, 92vw);
+  padding: 24px 22px 20px;
+  border-radius: 22px;
+  background: linear-gradient(160deg, rgba(22,26,48,0.96), rgba(12,14,28,0.98));
+  border: 2px solid var(--gold);
+  box-shadow: 0 24px 64px rgba(0,0,0,0.75), 0 0 36px rgba(255,184,74,0.28);
+  text-align: center;
+  overflow: hidden;
+}
+.resWrap.loss .resCard {
+  border-color: rgba(154,160,192,0.45);
+  box-shadow: 0 24px 64px rgba(0,0,0,0.75);
+}
+.resKicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--cyan);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.resKicker svg {
+  width: 15px;
+  height: 15px;
+}
+.resTitle {
+  font-size: 36px;
+  font-weight: 900;
+  letter-spacing: 3px;
+  margin: 6px 0 4px;
+  color: var(--gold);
+}
+.resWrap.loss .resTitle {
+  color: var(--ink);
+}
+.resMeta {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  font-size: 12px;
+  font-weight: 800;
+  min-height: 18px;
+  margin-bottom: 14px;
+}
+.resMeta svg {
+  width: 14px;
+  height: 14px;
+  vertical-align: -2px;
+  margin-right: 3px;
+}
+.resMeta .streak { color: #ff8a3d; }
+.resMeta .up     { color: var(--green); }
+.resMeta .down   { color: var(--red); }
+.resRewards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.resReward {
+  padding: 10px 8px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.resReward svg {
+  width: 18px;
+  height: 18px;
+}
+.resReward.coin svg   { color: var(--gold); }
+.resReward.ticket svg { color: var(--cyan); }
+.resReward.xp svg     { color: #a37bff; }
+.resReward b {
+  font-size: 20px;
+  font-weight: 900;
+  color: #fff;
+}
+.resReward span {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--mute);
+  text-transform: uppercase;
+}
+.resLevel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(0,0,0,0.35);
+  margin-bottom: 14px;
+}
+.resLvNum {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+.resLvNum span {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--mute);
+}
+.resLvNum b {
+  font-size: 18px;
+  font-weight: 900;
+  color: var(--cyan);
+}
+.resLvBar {
+  flex: 1;
+  height: 8px;
+  border-radius: 99px;
+  background: rgba(255,255,255,0.12);
+  overflow: hidden;
+}
+.resLvBar i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #ff4d9a, #54e0ee);
+  border-radius: 99px;
+  transition: width 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.resLvUp {
+  font-size: 11px;
+  font-weight: 900;
+  color: var(--gold);
+  letter-spacing: 0.8px;
+}
+.resQuests {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.resQuest {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: rgba(95, 224, 138, 0.14);
+  border: 1px solid rgba(95, 224, 138, 0.45);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--green);
+}
+.resQuest svg { width: 15px; height: 15px; flex-shrink: 0; }
+.resQuest em { font-style: normal; color: #fff; font-size: 10px; }
+.resActions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+.resBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 16px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 800;
+}
+.resBtn svg { width: 14px; height: 14px; }
+
+/* ---------- Unified Arcade OS Hub ---------- */
+#arcadeModal {
+  position: fixed;
+  inset: 0;
+  z-index: 155;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(6, 8, 18, 0.72);
+  backdrop-filter: blur(8px);
+}
+.arcadeCard {
+  width: min(760px, 94vw);
+  max-height: min(640px, 88vh);
+  display: flex;
+  flex-direction: column;
+  border-radius: 20px;
+  background: rgba(16, 20, 38, 0.96);
+  border: 1px solid rgba(84, 224, 238, 0.35);
+  box-shadow: 0 24px 64px rgba(0,0,0,0.75);
+  overflow: hidden;
+}
+.arcadeHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 14px 18px;
+  background: rgba(8, 10, 22, 0.65);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.arcadeHeaderTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.arcadeHeaderTitle b {
+  font-size: 13px;
+  letter-spacing: 1.2px;
+  color: var(--cyan);
+}
+.arcadeAuthBadge {
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  background: rgba(95, 224, 138, 0.16);
+  border: 1px solid rgba(95, 224, 138, 0.45);
+  color: var(--green);
+}
+.arcadeTabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.arcTab {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.arcTab.on {
+  background: var(--cyan);
+  color: #061318;
+  border-color: var(--cyan);
+  font-weight: 800;
+}
+.arcadeBody {
+  padding: 18px;
+  overflow-y: auto;
+  flex: 1;
+}
+.arcGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(215px, 1fr));
+  gap: 12px;
+}
+.arcGameTile {
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.09);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+.arcGameTile:hover {
+  border-color: var(--cyan);
+  transform: translateY(-2px);
+}
+.arcGameTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.arcGameTop b {
+  font-size: 14px;
+  color: #fff;
+}
+.arcSkillPill {
+  padding: 2px 7px;
+  border-radius: 99px;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  background: rgba(84,224,238,0.14);
+  color: var(--cyan);
+}
+.arcGameDesc {
+  font-size: 11px;
+  color: var(--mute);
+  line-height: 1.45;
+}
+.arcGameMeta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--gold);
+}
+.arcQuestRow, .arcContestRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  margin-bottom: 10px;
+}
+.arcQuestBar {
+  width: 160px;
+  height: 6px;
+  border-radius: 99px;
+  background: rgba(255,255,255,0.12);
+  overflow: hidden;
+  margin-top: 6px;
+}
+.arcQuestBar i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--cyan), var(--green));
+}

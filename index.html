@@ -20,7 +20,14 @@
     <div id="brand">
       <b>TWILIGHT ARCADE</b>
       <span id="pop"></span>
+      <button id="hudLevelBtn" class="hudLevelBtn" title="Your Level &amp; Player Card (C)">
+        <span id="hudLevelChip"></span>
+      </button>
       <div id="wallet"><span id="badgeCoins" title="Coins">🪙 <b id="coinVal">100</b></span><span id="badgeTickets" title="Tickets">🎟️ <b id="ticketVal">0</b></span></div>
+      <button id="hudArcadeBtn" class="hudArcadeBtn" title="Open Arcade OS: Play, Quests &amp; Contests (Tab)">
+        <span>🏆 ARCADE OS</span>
+        <span id="questBadgeDot" class="questBadgeDot hidden">!</span>
+      </button>
       <span id="hudClockBadge" class="hudClockBadge">🕒 <b id="clockVal">18:00</b></span>
     </div>
   </div>
@@ -33,7 +40,7 @@
   <div id="bottom">
     <form id="chat" autocomplete="off"><input id="chatIn" maxlength="80" placeholder="Press Enter to chat…"><button>Send</button></form>
   </div>
-  <div id="help"><kbd>WASD / Click</kbd> Move &nbsp;·&nbsp; <kbd>E</kbd> Interact &nbsp;·&nbsp; <kbd>📱 PHONE [P]</kbd> Apps, Warp &amp; Radio</div>
+  <div id="help"><kbd>WASD / Click</kbd> Move &nbsp;·&nbsp; <kbd>Click Avatar</kbd> Player Card &nbsp;·&nbsp; <kbd>Tab</kbd> Arcade OS &nbsp;·&nbsp; <kbd>📱 PHONE [P]</kbd></div>
 
   <!-- GTA VI Character Smartphone Trigger Pill -->
   <button id="phoneToggleBtn" class="phonePill" title="Open Character Smartphone (P or ↑)">
@@ -102,38 +109,18 @@
             </div>
           </div>
 
-          <!-- Fast Travel / Warp GPS -->
+          <!-- Core Apps Grid -->
           <div class="phoneSection">
-            <div class="sectionTitle">WARP · GPS NAVIGATION</div>
-            <div class="phoneWarpList">
-              <button id="bTravelArcade" class="pWarpTile active" title="Instant Warp (1)">
-                <span class="pWarpIcon">🕹️</span>
-                <div class="pWarpText">
-                  <b>Arcade Lounge</b>
-                  <span>Retro Lounge Floor &nbsp;·&nbsp; [1]</span>
-                </div>
-              </button>
-              <button id="bTravelLoft" class="pWarpTile" title="Instant Warp (2)">
-                <span class="pWarpIcon">🏠</span>
-                <div class="pWarpText">
-                  <b>Skyline Loft</b>
-                  <span>Unit 101 Penthouse &nbsp;·&nbsp; [2]</span>
-                </div>
-              </button>
-              <button id="bTravelMoon" class="pWarpTile" title="Instant Warp (3)">
-                <span class="pWarpIcon">🌕</span>
-                <div class="pWarpText">
-                  <b>Moon Base Diorama</b>
-                  <span>Artemis Outpost &nbsp;·&nbsp; [3]</span>
-                </div>
-              </button>
-            </div>
-          </div>
-
-          <!-- Apps Grid -->
-          <div class="phoneSection">
-            <div class="sectionTitle">VICE APPS</div>
+            <div class="sectionTitle">ARCADE &amp; HANGOUT APPS</div>
             <div class="phoneAppsGrid">
+              <button id="pAppArcade" class="phoneAppIcon" title="Arcade OS: Play, Quests &amp; Contests (Tab)">
+                <div class="appGlyph" style="background:linear-gradient(135deg,#ffb84a,#ea580c)">🏆</div>
+                <span>Compete</span>
+              </button>
+              <button id="pAppCard" class="phoneAppIcon" title="Your Holographic Player Card (C)">
+                <div class="appGlyph" style="background:linear-gradient(135deg,#54e0ee,#2563eb)">🪪</div>
+                <span>My Card</span>
+              </button>
               <button id="pAppDress" class="phoneAppIcon" title="Wardrobe / Avatar Customizer">
                 <div class="appGlyph" style="background:linear-gradient(135deg,#ff4d9a,#c026d3)">👕</div>
                 <span>Style</span>
@@ -141,14 +128,6 @@
               <button id="pAppBuild" class="phoneAppIcon" title="Decorator Mode (B)">
                 <div class="appGlyph" style="background:linear-gradient(135deg,#35e0ff,#0284c7)">🔨</div>
                 <span>Builder</span>
-              </button>
-              <button id="pAppMap" class="phoneAppIcon" title="Twilight District City Map">
-                <div class="appGlyph" style="background:linear-gradient(135deg,#fbbf24,#ea580c)">🗺️</div>
-                <span>City Map</span>
-              </button>
-              <button id="pAppGigs" class="phoneAppIcon" title="Freelance Gigs & Jobs">
-                <div class="appGlyph" style="background:linear-gradient(135deg,#4ade80,#16a34a)">💼</div>
-                <span>Gigs</span>
               </button>
               <button id="pAppView" class="phoneAppIcon" title="Toggle 3D / Isometric View (V)">
                 <div class="appGlyph" style="background:linear-gradient(135deg,#a855f7,#4f46e5)">📐</div>
@@ -159,6 +138,49 @@
                 <span id="pAppQualLabel">High</span>
               </button>
             </div>
+          </div>
+
+          <!-- Fast Travel / Warp GPS (Core rooms first, District & Side Activities tucked cleanly) -->
+          <div class="phoneSection">
+            <div class="sectionTitle">SPACES &amp; SIDE ACTIVITIES</div>
+            <div class="phoneWarpList">
+              <button id="bTravelArcade" class="pWarpTile active" title="Instant Warp (1)">
+                <span class="pWarpIcon">🕹️</span>
+                <div class="pWarpText">
+                  <b>Arcade Lounge</b>
+                  <span>Main Competitive Floor &nbsp;·&nbsp; [1]</span>
+                </div>
+              </button>
+              <button id="bTravelLoft" class="pWarpTile" title="Instant Warp (2)">
+                <span class="pWarpIcon">🏠</span>
+                <div class="pWarpText">
+                  <b>Personal Loft</b>
+                  <span>Trophy Case &amp; Penthouse &nbsp;·&nbsp; [2]</span>
+                </div>
+              </button>
+            </div>
+            <details class="phoneExtrasDrawer">
+              <summary>More District &amp; Sandbox Modes</summary>
+              <div class="phoneWarpList" style="margin-top:8px;">
+                <button id="bTravelMoon" class="pWarpTile" title="Instant Warp (3)">
+                  <span class="pWarpIcon">🌕</span>
+                  <div class="pWarpText">
+                    <b>Moon Base Diorama</b>
+                    <span>Artemis Outpost &nbsp;·&nbsp; [3]</span>
+                  </div>
+                </button>
+              </div>
+              <div class="phoneAppsGrid" style="margin-top:8px;">
+                <button id="pAppMap" class="phoneAppIcon" title="Twilight District City Map">
+                  <div class="appGlyph" style="background:linear-gradient(135deg,#fbbf24,#ea580c)">🗺️</div>
+                  <span>City Map</span>
+                </button>
+                <button id="pAppGigs" class="phoneAppIcon" title="Freelance Gigs &amp; Jobs">
+                  <div class="appGlyph" style="background:linear-gradient(135deg,#4ade80,#16a34a)">💼</div>
+                  <span>Gigs</span>
+                </button>
+              </div>
+            </details>
           </div>
 
           <!-- Emotes & Vibes -->
@@ -534,6 +556,39 @@
   </div>
 </div>
 <div id="loading">Loading lounge…</div>
+
+<!-- Match Presentation: VS Walk-out Splash & Result Ceremony -->
+<div id="vsOverlay" class="hidden"></div>
+<div id="resultOverlay" class="hidden"></div>
+
+<!-- Interactive 3D Holographic Player Card Modal -->
+<div id="cardModal" class="hidden">
+  <div class="cardModalBackdrop" id="cardModalBackdrop"></div>
+  <div class="cardModalBox">
+    <div id="cardModalHost"></div>
+    <div class="cardModalActions" id="cardModalActions"></div>
+  </div>
+</div>
+
+<!-- Unified Arcade OS Hub (Play / Quests / Contests / My Card) -->
+<div id="arcadeModal" class="hidden">
+  <div class="arcadeCard">
+    <div class="arcadeHeader">
+      <div class="arcadeHeaderTitle">
+        <b>🏆 TWILIGHT ARCADE OS</b>
+        <span id="arcadeAuthBadge" class="arcadeAuthBadge">LOCAL</span>
+      </div>
+      <div class="arcadeTabs">
+        <button class="arcTab on" data-arctab="play">🕹️ Play Now</button>
+        <button class="arcTab" data-arctab="quests">🎯 Daily Quests</button>
+        <button class="arcTab" data-arctab="contests">⚔️ Contests &amp; Pots</button>
+        <button class="arcTab" data-arctab="card">🪪 My Card</button>
+      </div>
+      <button id="arcadeClose">✕</button>
+    </div>
+    <div id="arcadeBody" class="arcadeBody"></div>
+  </div>
+</div>
 <script>
   if (location.protocol === 'file:') document.addEventListener('DOMContentLoaded', function () {
     var l = document.getElementById('loading'); l.style.cssText = 'color:#ffb84a;line-height:2;text-align:center;padding:0 10vw';

@@ -63,6 +63,22 @@ export class Sound {
   servo() {
     this.tone(320, 0.15, 'triangle', 0.06, null, 0, 1.3);
   }
+  tick() {
+    this.tone(920, 0.035, 'triangle', 0.06);
+  }
+  versus() {
+    this.tone(110, 0.28, 'sawtooth', 0.16, null, 0, 0.6);
+    this.tone(330, 0.12, 'triangle', 0.14, null, 0.08);
+    this.tone(440, 0.12, 'triangle', 0.14, null, 0.18);
+    this.tone(660, 0.32, 'sawtooth', 0.16, null, 0.28);
+  }
+  levelUp() {
+    this.tone(523.25, 0.1, 'triangle', 0.15, null, 0);
+    this.tone(659.25, 0.1, 'triangle', 0.15, null, 0.09);
+    this.tone(783.99, 0.1, 'triangle', 0.16, null, 0.18);
+    this.tone(1046.5, 0.14, 'triangle', 0.18, null, 0.27);
+    this.tone(1318.5, 0.38, 'sine', 0.22, null, 0.38);
+  }
   // spatial: gain falls with distance from the listener, pan follows the screen-space side
   blipAt(f, dist, pan) { const g = 0.05 * Math.max(0, 1 - dist / 10); if (g < 0.003) return; const c = this._ctx(); if (!c) return; const o = c.createOscillator(), e = c.createGain(), p = c.createStereoPanner ? c.createStereoPanner() : null, t = c.currentTime;
     o.type = 'square'; o.frequency.value = f; e.gain.setValueAtTime(g, t); e.gain.exponentialRampToValueAtTime(0.0001, t + 0.07); if (p) { p.pan.value = Math.max(-1, Math.min(1, pan)); o.connect(e); e.connect(p); p.connect(this.master); } else { o.connect(e); e.connect(this.master); } o.start(t); o.stop(t + 0.09); }
