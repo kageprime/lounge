@@ -1,0 +1,545 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Neon Arcade Lounge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&display=swap">
+<link rel="stylesheet" href="style.css">
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }
+</script>
+</head>
+<body>
+<div id="stage"></div>
+<div id="vig"></div>
+<div id="tags"></div>
+<div id="hud">
+  <div id="topBar">
+    <div id="brand">
+      <b>TWILIGHT ARCADE</b>
+      <span id="pop"></span>
+      <div id="wallet"><span id="badgeCoins" title="Coins">🪙 <b id="coinVal">100</b></span><span id="badgeTickets" title="Tickets">🎟️ <b id="ticketVal">0</b></span></div>
+      <span id="hudClockBadge" class="hudClockBadge">🕒 <b id="clockVal">18:00</b></span>
+    </div>
+  </div>
+  <div id="tip"></div>
+  <div id="promptE" class="hidden"></div>
+  <div id="toast"></div>
+  <div id="log"></div>
+
+  <!-- Bottom Bar: Ultra Clean GTA VI Style -->
+  <div id="bottom">
+    <form id="chat" autocomplete="off"><input id="chatIn" maxlength="80" placeholder="Press Enter to chat…"><button>Send</button></form>
+  </div>
+  <div id="help"><kbd>WASD / Click</kbd> Move &nbsp;·&nbsp; <kbd>E</kbd> Interact &nbsp;·&nbsp; <kbd>📱 PHONE [P]</kbd> Apps, Warp &amp; Radio</div>
+
+  <!-- GTA VI Character Smartphone Trigger Pill -->
+  <button id="phoneToggleBtn" class="phonePill" title="Open Character Smartphone (P or ↑)">
+    <span class="phonePillIcon">📱</span>
+    <span class="phonePillLabel">PHONE</span>
+    <kbd>P</kbd>
+  </button>
+
+  <!-- GTA VI VicePhone Device Modal -->
+  <div id="phoneDevice" class="phoneClosed">
+    <div class="phoneChassis">
+      <div class="phoneScreen">
+        <div class="phoneGlare"></div>
+
+        <!-- Phone Top Status Bar & Dynamic Island -->
+        <div class="phoneStatusBar">
+          <span id="phoneTime">18:00</span>
+          <div class="phoneDynamicIsland" id="phoneIsland">
+            <span class="islandDot"></span>
+            <span class="islandText" id="islandText">TWILIGHT 5G</span>
+            <div class="islandEq hidden" id="islandEq"><span></span><span></span><span></span></div>
+          </div>
+          <div class="phoneStatusIcons">
+            <span class="pSig">📶</span>
+            <span class="pBat">99% 🔋</span>
+          </div>
+        </div>
+
+        <!-- Phone App / Content Body -->
+        <div class="phoneBody">
+
+          <!-- Miami Nights FM Cassette Widget inside Phone -->
+          <div class="phoneWidget phoneRadioWidget">
+            <div class="pRadioHeader">
+              <div class="pRadioStation">
+                <span class="cassetteIcon">📼</span>
+                <span class="radioStation">MIAMI NIGHTS FM</span>
+                <span id="ytRadioLiveDot" class="liveDot"></span>
+              </div>
+              <div class="pRadioActions">
+                <button id="bYtToggleVideo" title="Toggle CRT Visualizer" class="tinyBtn">📺</button>
+                <button id="bYtCustom" title="Custom YouTube URL / ID" class="tinyBtn">🔗</button>
+              </div>
+            </div>
+            <div class="radioTrackRow">
+              <div id="ytTrackMarquee"><span id="ytTrackTitle">Miami Nights 1984 - Accelerated</span></div>
+            </div>
+            <div class="radioControlsRow">
+              <button id="bYtPrev" title="Previous Track">⏮</button>
+              <button id="bYtPlay" class="gold" title="Play / Pause">▶</button>
+              <button id="bYtNext" title="Next Track">⏭</button>
+              <div class="radioVolWrap" title="Volume">
+                <span>🔈</span>
+                <input id="ytVolSlider" type="range" min="0" max="100" value="70">
+                <span>🔊</span>
+              </div>
+            </div>
+            <div class="radioEqRow" id="ytEqBars">
+              <div class="eqBar b1"></div><div class="eqBar b2"></div><div class="eqBar b3"></div>
+              <div class="eqBar b4"></div><div class="eqBar b5"></div><div class="eqBar b6"></div>
+              <div class="eqBar b7"></div><div class="eqBar b8"></div>
+            </div>
+            <div id="ytPlayerHost" class="hidden">
+              <div id="ytPlayer"></div>
+              <div class="crtOverlay"></div>
+            </div>
+          </div>
+
+          <!-- Fast Travel / Warp GPS -->
+          <div class="phoneSection">
+            <div class="sectionTitle">WARP · GPS NAVIGATION</div>
+            <div class="phoneWarpList">
+              <button id="bTravelArcade" class="pWarpTile active" title="Instant Warp (1)">
+                <span class="pWarpIcon">🕹️</span>
+                <div class="pWarpText">
+                  <b>Arcade Lounge</b>
+                  <span>Retro Lounge Floor &nbsp;·&nbsp; [1]</span>
+                </div>
+              </button>
+              <button id="bTravelLoft" class="pWarpTile" title="Instant Warp (2)">
+                <span class="pWarpIcon">🏠</span>
+                <div class="pWarpText">
+                  <b>Skyline Loft</b>
+                  <span>Unit 101 Penthouse &nbsp;·&nbsp; [2]</span>
+                </div>
+              </button>
+              <button id="bTravelMoon" class="pWarpTile" title="Instant Warp (3)">
+                <span class="pWarpIcon">🌕</span>
+                <div class="pWarpText">
+                  <b>Moon Base Diorama</b>
+                  <span>Artemis Outpost &nbsp;·&nbsp; [3]</span>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <!-- Apps Grid -->
+          <div class="phoneSection">
+            <div class="sectionTitle">VICE APPS</div>
+            <div class="phoneAppsGrid">
+              <button id="pAppDress" class="phoneAppIcon" title="Wardrobe / Avatar Customizer">
+                <div class="appGlyph" style="background:linear-gradient(135deg,#ff4d9a,#c026d3)">👕</div>
+                <span>Style</span>
+              </button>
+              <button id="pAppBuild" class="phoneAppIcon" title="Decorator Mode (B)">
+                <div class="appGlyph" style="background:linear-gradient(135deg,#35e0ff,#0284c7)">🔨</div>
+                <span>Builder</span>
+              </button>
+              <button id="pAppMap" class="phoneAppIcon" title="Twilight District City Map">
+                <div class="appGlyph" style="background:linear-gradient(135deg,#fbbf24,#ea580c)">🗺️</div>
+                <span>City Map</span>
+              </button>
+              <button id="pAppGigs" class="phoneAppIcon" title="Freelance Gigs & Jobs">
+                <div class="appGlyph" style="background:linear-gradient(135deg,#4ade80,#16a34a)">💼</div>
+                <span>Gigs</span>
+              </button>
+              <button id="pAppView" class="phoneAppIcon" title="Toggle 3D / Isometric View (V)">
+                <div class="appGlyph" style="background:linear-gradient(135deg,#a855f7,#4f46e5)">📐</div>
+                <span id="pAppViewLabel">ISO</span>
+              </button>
+              <button id="pAppQual" class="phoneAppIcon" title="Graphics Quality Settings">
+                <div class="appGlyph" style="background:linear-gradient(135deg,#f43f5e,#be123c)">✨</div>
+                <span id="pAppQualLabel">High</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Emotes & Vibes -->
+          <div class="phoneSection">
+            <div class="sectionTitle">EMOTES &amp; VIBES</div>
+            <div id="emotes" class="phoneEmotesWrap"></div>
+          </div>
+
+          <!-- Camera & Hardware Controls -->
+          <div class="phoneSection">
+            <div class="sectionTitle">SYSTEM CONTROLS</div>
+            <div class="phoneHardwareRow">
+              <button id="bRotL" class="pHardwareBtn" title="Rotate Left (Q)">↺ Q</button>
+              <button id="bRotR" class="pHardwareBtn" title="Rotate Right (E)">↻ E</button>
+              <button id="bZin" class="pHardwareBtn" title="Zoom In">+</button>
+              <button id="bZout" class="pHardwareBtn" title="Zoom Out">−</button>
+              <button id="bFollow" class="pHardwareBtn" title="Follow Player (F)">🎯 Follow</button>
+              <button id="bMute" class="pHardwareBtn" title="Sound Mute">🔊</button>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Phone Home Swipe / Close Indicator -->
+        <div id="phoneHomeBar" class="phoneHomeBar" title="Close Smartphone (Esc or ↓)">
+          <div class="homeBarIndicator"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hidden compatibility buttons for legacy script hooks -->
+  <div style="display:none">
+    <button id="bBuild"></button>
+    <button id="bDress"></button>
+    <button id="bView"></button>
+    <button id="bQual"></button>
+    <button id="bRadio"></button>
+  </div>
+</div>
+<div id="buildBar" class="hidden">
+  <div id="buildHeader">
+    <div class="tabs">
+      <button class="bTab on" data-cat="cabinets">Cabinets</button>
+      <button class="bTab" data-cat="seating">Seating</button>
+      <button class="bTab" data-cat="tables">Tables</button>
+      <button class="bTab" data-cat="decor">Decor</button>
+    </div>
+    <div class="buildActions">
+      <button id="bResetLounge" title="Restore original room layout">Reset Layout</button>
+      <button id="bBuildDone" class="gold">Done (B)</button>
+    </div>
+  </div>
+  <div id="catalogList"></div>
+  <div id="buildHelp">
+    <kbd>Click</kbd> place / pick up &nbsp; <kbd>R</kbd> rotate &nbsp; <kbd>Del</kbd> remove &nbsp; <kbd>Esc</kbd> exit
+  </div>
+</div>
+<div id="juke" class="panel hidden">
+  <div class="jukeHeader">
+    <h3>Neon Jukebox</h3>
+    <span class="jukeSub">Miami Nights FM & Retro Synth</span>
+  </div>
+  <div class="jukeTabs">
+    <button id="bJukeTabMiami" class="jukeTab on">🌴 Miami Nights</button>
+    <button id="bJukeTabSynth" class="jukeTab">🎹 Lounge Synths</button>
+  </div>
+  <div id="jukeList"></div>
+  <button id="jukeClose" class="wide" style="margin-top:10px;">Close</button>
+</div>
+<div id="dress" class="panel hidden"><h3>Your avatar</h3><input id="nameIn" maxlength="14" placeholder="Name"><div id="dressRows"></div><div class="row"><button id="dressRand">Randomise</button><button id="dressDone" class="wide gold">Done</button></div></div>
+<div id="game" class="hidden"><div id="gameBar"><b id="gameTitle"></b><button id="gameClose">✕ Back to lounge</button></div><iframe id="gameFrame" title="game"></iframe></div>
+<div id="clawModal" class="hidden">
+  <div id="clawHeader">
+    <div class="clawTitle"><b>CYBER CLAW 2000</b><span>10 COINS / PLAY</span></div>
+    <button id="clawClose">✕ Close</button>
+  </div>
+  <div id="clawBody">
+    <canvas id="clawCanvas" width="460" height="420"></canvas>
+    <div id="clawControls">
+      <div id="joystickZone">
+        <div id="joyBase">
+          <div id="joyStick"></div>
+        </div>
+        <div class="joyHint">DRAG JOYSTICK OR WASD</div>
+      </div>
+      <div id="clawActionZone">
+        <button id="bClawDrop" class="gold">DROP CLAW (SPACE)</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="prizeModal" class="hidden">
+  <div class="prizeCard">
+    <div id="prizeSparkles">✨ YOU WON! ✨</div>
+    <div id="prizeIcon">🎁</div>
+    <h3 id="prizeName">Prize Name</h3>
+    <p id="prizeDesc">Details about the prize</p>
+    <button id="prizeClaim" class="gold wide">Awesome!</button>
+  </div>
+</div>
+<div id="shopModal" class="hidden">
+  <div class="shopCard">
+    <div class="shopHeader">
+      <b>TICKET PRIZE COUNTER</b>
+      <button id="shopClose">✕ Close</button>
+    </div>
+    <div class="shopBalance">Your balance: 🎟️ <b id="shopTickets">0</b> Tickets &nbsp;·&nbsp; 🪙 <b id="shopCoins">0</b> Coins</div>
+    <div id="shopItems"></div>
+  </div>
+</div>
+<div id="termModal" class="hidden">
+  <div class="termCard">
+    <div class="termHeader">
+      <b>SUBSPACE ARCHIVE TERMINAL // 1989</b>
+      <button id="termClose">✕ Exit</button>
+    </div>
+    <div class="termScreen">
+      <div id="termLogView">
+        <p class="tPrompt">&gt; SYSTEM ONLINE. CONNECTED TO SUBSPACE BACKROOM NODE.</p>
+        <p class="tPrompt">&gt; AWAITING COMMAND DIRECTIVE...</p>
+      </div>
+      <div id="termButtons">
+        <button class="tCmdBtn" data-act="phase">⚡ SHIFT REALITY</button>
+        <button class="tCmdBtn" data-act="relic">👑 EXTRACT VOID CROWN</button>
+        <button class="tCmdBtn" data-act="warp">🌀 SUBSPACE WARP</button>
+        <button class="tCmdBtn" data-act="logs">📜 CLASSIFIED LOGS</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="mapModal" class="hidden">
+  <div class="mapCard">
+    <div class="mapHeader">
+      <b>✦ THE TWILIGHT DISTRICT · MAP</b>
+      <button id="mapClose">✕ Close</button>
+    </div>
+    <div id="mapCanvasWrap">
+      <canvas id="districtMapCanvas" width="560" height="380"></canvas>
+    </div>
+    <div class="mapLegend">
+      <span><i style="background:#ff4d9a"></i> Arcade</span>
+      <span><i style="background:#35e0ff"></i> Diner</span>
+      <span><i style="background:#ffd166"></i> Bodega</span>
+      <span><i style="background:#8a5cff"></i> Lofts</span>
+      <span><i style="background:#33ff88"></i> Backrooms</span>
+      <span><i style="background:#5fe08a;border-radius:50%"></i> You</span>
+    </div>
+  </div>
+</div>
+<div id="dialogueModal" class="hidden">
+  <div class="dialogueCard">
+    <div class="dialogueHeader">
+      <div class="dialogueProfile">
+        <span id="diagIcon">👤</span>
+        <div>
+          <b id="diagName">Citizen</b>
+          <span id="diagRole" class="pill">Role</span>
+        </div>
+      </div>
+      <div id="diagAffinityWrap">
+        <span id="diagTier">Acquaintance</span>
+        <div id="diagBar"><div id="diagFill"></div></div>
+      </div>
+      <button id="diagClose">✕</button>
+    </div>
+    <div id="diagSpeech" class="diagBubble">"Hey neighbor! Welcome to the district."</div>
+    <div class="diagActions">
+      <button id="bDiagTalk" class="gold">💬 Chat</button>
+      <button id="bDiagCompliment">✨ Compliment</button>
+      <button id="bDiagGift">🎁 Gift Soda (10🪙)</button>
+      <button id="bDiagGossip">🔍 Ask Rumors</button>
+      <button id="bDiagInviteLoft" class="gold hidden">🏠 Invite to My Loft</button>
+    </div>
+  </div>
+</div>
+<div id="loftPcModal" class="hidden">
+  <div class="pcCard">
+    <div class="pcHeader">
+      <div class="pcTitle">
+        <b>NEON-OS v4.1</b>
+        <span class="pcSubtitle">// UNIT 101 CYBER WORKSTATION</span>
+      </div>
+      <button id="pcClose">✕ Log Off</button>
+    </div>
+    <div class="pcNav">
+      <button class="pcTab on" data-pctab="matrix">💻 NetRunner Matrix</button>
+      <button class="pcTab" data-pctab="lofi">🎵 Lo-Fi Beats</button>
+      <button class="pcTab" data-pctab="inbox">📨 District Chatter</button>
+      <button class="pcTab" data-pctab="status">🏠 Unit 101 Status</button>
+      <button class="pcTab" data-pctab="moonbase">🚀 Artemis Moon Base</button>
+    </div>
+    <div class="pcScreen">
+      <!-- NetRunner Matrix -->
+      <div id="pcTabMatrix" class="pcTabContent">
+        <div class="matrixHeader">
+          <b>CYBERSPACE NODE INFILTRATOR</b>
+          <span id="matrixStatus">STATUS: ENCRYPTED SUBNET READY</span>
+        </div>
+        <p class="matrixDesc">Match the target data fragments to crack subnet security and earn crypto coins!</p>
+        <div id="matrixCodeTarget" class="matrixTarget">TARGET: [ 7F : 3A : 9C ]</div>
+        <div id="matrixGrid" class="matrixGrid"></div>
+        <div class="matrixFooter">
+          <span id="matrixRewardInfo">Reward: +40🪙 Coins · +15🎟️ Tickets</span>
+          <button id="bMatrixHack" class="gold">Execute Hack</button>
+        </div>
+      </div>
+      <!-- Lo-Fi Beats -->
+      <div id="pcTabLofi" class="pcTabContent hidden">
+        <div class="lofiHeader">
+          <b>NEON LO-FI RADIO STATION</b>
+          <span id="lofiTrackName">Track: Midnight Promenade [Chill Synth]</span>
+        </div>
+        <div class="lofiVisualizer" id="lofiBars"></div>
+        <div class="lofiControls">
+          <button id="bLofiToggle" class="gold">▶ Play Ambient Beats</button>
+          <button id="bLofiNext">⏭ Next Frequency</button>
+        </div>
+      </div>
+      <!-- District Chatter -->
+      <div id="pcTabInbox" class="pcTabContent hidden">
+        <div id="pcInboxList" class="inboxList"></div>
+      </div>
+      <!-- Unit 101 Status -->
+      <div id="pcTabStatus" class="pcTabContent hidden">
+        <div class="statusCard">
+          <h3>Skyline Micro-Lofts · Unit 101</h3>
+          <p>Tenant: <b>Registered Resident</b> &nbsp;·&nbsp; Sector: <b>Skyline Heights</b></p>
+          <div class="statusStats">
+            <div class="sStat"><span>Rent</span><b>PAID (Freehold)</b></div>
+            <div class="sStat"><span>Grid Power</span><b>100% ONLINE</b></div>
+            <div class="sStat"><span>Atmosphere</span><b>VIBRANT / COZY</b></div>
+          </div>
+          <button id="bLoftDecorate" class="gold" style="margin-top:14px;width:100%;">🛠️ Decorate Unit 101 (Build Mode)</button>
+        </div>
+      </div>
+      <!-- Artemis Moon Base Tab -->
+      <div id="pcTabMoonbase" class="pcTabContent hidden">
+        <div class="statusCard">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+            <div style="font-size:32px;">🌕</div>
+            <div>
+              <h3 style="margin:0;color:#54e0ee;">Artemis Outpost Alpha · Lunar Diorama</h3>
+              <p style="margin:3px 0 0;color:var(--mute);font-size:12px;">Mare Tranquillitatis Sector 7 · Telemetry: 100% ONLINE</p>
+            </div>
+          </div>
+          <div class="statusStats">
+            <div class="sStat"><span>Distance</span><b>384,400 KM</b></div>
+            <div class="sStat"><span>Habitats</span><b>3 Domes + 2 Labs</b></div>
+            <div class="sStat"><span>Power</span><b>40 kW Kilopower</b></div>
+          </div>
+          <p style="margin:14px 0;font-size:13px;line-height:1.5;color:var(--ink);">
+            The tabletop diorama observation deck provides real-time orbital telemetry, living habitat operations, elevated transit monorail simulation, and suborbital flight control.
+          </p>
+          <div class="row" style="margin-top:16px;">
+            <button id="bWarpMoonBase" class="gold wide" style="padding:12px;font-size:14px;font-weight:700;">🌌 Warp to Artemis Moon Base Diorama</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="gigModal" class="hidden">
+  <div class="gigCard">
+    <div class="gigHeader">
+      <b>✦ DISTRICT GIGS & OPPORTUNITIES</b>
+      <button id="gigClose">✕ Close</button>
+    </div>
+    <div id="gigList"></div>
+  </div>
+</div>
+<div id="seedModal" class="hidden">
+  <div class="seedCard">
+    <div class="seedHeader">
+      <b>✦ PROCEDURAL DISTRICT GENERATOR</b>
+      <button id="seedClose">✕ Close</button>
+    </div>
+    <p style="color:var(--mute);margin:8px 0 14px;font-size:12px;">Generate a new procedural district with distinct layouts, citizens, and life-sim activities.</p>
+    <div class="row">
+      <input id="seedInput" type="text" placeholder="Enter seed (e.g. cyber99, 1337, cozy)" style="flex:1;">
+      <button id="bSeedRandom">🎲 Random</button>
+    </div>
+    <div class="row" style="margin-top:14px;justify-content:flex-end;">
+      <button id="bSeedClassic">Classic Lounge</button>
+      <button id="bSeedApply" class="gold">Generate District</button>
+    </div>
+  </div>
+</div>
+<!-- Moon Base Tabletop Diorama Stage Overlay -->
+<div id="moonbaseOverlay" class="hidden">
+  <div id="moonbaseStage"></div>
+  <div id="moonbaseLabels"></div>
+
+  <!-- Top Telemetry Header -->
+  <div id="moonbaseHeader">
+    <div class="mbBrand">
+      <span class="mbOrbitDot"></span>
+      <b>ARTEMIS OUTPOST ALPHA</b>
+      <span class="pill mbPill">TABLETOP DIORAMA</span>
+    </div>
+    <div class="mbTelemetry">
+      <span>🛰️ ORBIT: 384,400 KM</span>
+      <span id="mbTimeDisplay">🕒 LUNAR T+ 12:00</span>
+      <span id="mbEarthPhase">🌍 EARTHRISE: 82%</span>
+    </div>
+    <button id="bMbReturn" class="gold mbReturnBtn">🚪 Return to Unit 101</button>
+  </div>
+
+  <!-- Bottom Sci-Fi Toolbar -->
+  <div id="moonbaseToolbar">
+    <div class="mbToolGroup">
+      <button id="bMbPause" title="Pause / Resume Simulation (P)"><span class="mbIcon">⏸</span></button>
+      <button id="bMbSpeed" class="mbTextBtn" title="Simulation Speed">1x</button>
+    </div>
+
+    <div class="mbToolDivider"></div>
+
+    <div class="mbTimeGroup" title="Scrub Lunar Day/Night Cycle">
+      <span class="mbIcon">☀️</span>
+      <input id="mbTimeSlider" type="range" min="0" max="100" value="25">
+      <button id="bMbDayCycle" class="tinyBtn on" title="Toggle Auto Day/Night Cycle">CYCLE</button>
+    </div>
+
+    <div class="mbToolDivider"></div>
+
+    <div class="mbActionGroup">
+      <button id="bMbLaunch" class="mbActionBtn gold" title="Launch Orbital Rocket (L)">🚀 Launch</button>
+      <button id="bMbHopper" class="mbActionBtn" title="Call Suborbital Hopper (H)">🛸 Hopper</button>
+      <button id="bMbPatrol" class="mbActionBtn" title="Deploy Rover Patrol">🚙 Patrol</button>
+      <button id="bMbMeteors" class="mbActionBtn" title="Trigger Meteor Shower">🌠 Meteors</button>
+      <button id="bMbStorm" class="mbActionBtn" title="Trigger Electrostatic Dust Storm">🌪 Dust Storm</button>
+    </div>
+
+    <div class="mbToolDivider"></div>
+
+    <div class="mbToggleGroup">
+      <button id="bMbLights" class="on" title="Toggle Perimeter Floodlights (T)">💡</button>
+      <button id="bMbLabels" class="on" title="Toggle 3D Module Labels">🏷️</button>
+      <button id="bMbShadows" class="on" title="Toggle Soft Lunar Shadows">🌑</button>
+      <button id="bMbSound" class="on" title="Toggle Sound Mute">🔊</button>
+      <button id="bMbResetCam" title="Reset to Tabletop Overview (1)">🎥</button>
+      <button id="bMbHelp" title="Hotkeys & Controls Help">❓</button>
+    </div>
+  </div>
+
+  <!-- Help & Preset Views Modal -->
+  <div id="moonbaseHelpModal" class="hidden">
+    <div class="mbHelpCard">
+      <div class="mbHelpHeader">
+        <b>✦ ARTEMIS OUTPOST DIORAMA CONTROLS</b>
+        <button id="bMbHelpClose">✕</button>
+      </div>
+      <div class="mbHelpBody">
+        <div class="mbHelpRow"><kbd>Left Click + Drag</kbd><span>Damped Orbit Camera Angle</span></div>
+        <div class="mbHelpRow"><kbd>Right Click + Drag</kbd><span>Pan Camera across Tabletop Diorama</span></div>
+        <div class="mbHelpRow"><kbd>Mouse Wheel</kbd><span>Zoom (from Astronaut closeup to full Room)</span></div>
+        <div class="mbHelpRow"><kbd>Double-Click</kbd><span>Reset Camera to Front Tabletop Edge</span></div>
+        <div class="mbHelpRow"><kbd>1 .. 6</kbd><span>Preset Views (Overview, Rocket, Domes, Tower, Train, Crater)</span></div>
+        <div class="mbHelpRow"><kbd>Click Structures</kbd><span>Interactive actions & Smooth fly-to-inspect</span></div>
+        <div class="mbHelpRow"><kbd>L / H / T / P</kbd><span>Launch / Hopper / Lights / Pause Hotkeys</span></div>
+        <div class="mbHelpRow"><kbd>Esc</kbd><span>Return to Skyline Micro-Lofts Unit 101</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading Bar Overlay -->
+  <div id="moonbaseLoading" class="hidden">
+    <div class="mbLoadingBox">
+      <div class="mbLoadingSpinner"></div>
+      <b>ESTABLISHING QUANTUM DIORAMA LINK...</b>
+      <span>Calibrating tabletop regolith and telemetry</span>
+    </div>
+  </div>
+</div>
+<div id="loading">Loading lounge…</div>
+<script>
+  if (location.protocol === 'file:') document.addEventListener('DOMContentLoaded', function () {
+    var l = document.getElementById('loading'); l.style.cssText = 'color:#ffb84a;line-height:2;text-align:center;padding:0 10vw';
+    l.innerHTML = 'Browsers block ES modules on file:// - please do not double-click index.html.<br>Windows: double-click <b>start.bat</b><br>Mac / Linux: run <b>node serve.mjs</b> in this folder, then open http://localhost:8000';
+  });
+</script>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>

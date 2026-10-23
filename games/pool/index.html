@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Neon Billiards · Club No.9 Edition</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<canvas id="gl"></canvas>
+<div class="vignette"></div>
+
+<!-- GTA-Style Top-Left Minimal Match Card -->
+<div id="matchCard">
+  <div class="matchHeader">
+    <span class="gameTag">8-BALL</span>
+    <span id="matchModeBadge" class="modeTag" title="Click or Press M to switch mode">VS CPU</span>
+  </div>
+  <div class="playersContainer">
+    <!-- Player 1 / You -->
+    <div id="p1Row" class="pRow active">
+      <div class="pMeta">
+        <span class="pTurnDot"></span>
+        <span class="pName">YOU</span>
+      </div>
+      <div id="p1Pips" class="pipsRow">
+        <span class="pip" data-ball="1"></span>
+        <span class="pip" data-ball="2"></span>
+        <span class="pip" data-ball="3"></span>
+        <span class="pip" data-ball="4"></span>
+        <span class="pip" data-ball="5"></span>
+        <span class="pip" data-ball="6"></span>
+        <span class="pip" data-ball="7"></span>
+      </div>
+      <span id="p1GroupLabel" class="pGroup">OPEN</span>
+    </div>
+
+    <!-- Player 2 / Bot -->
+    <div id="p2Row" class="pRow">
+      <div class="pMeta">
+        <span class="pTurnDot"></span>
+        <span id="p2Name" class="pName">AI BOT</span>
+      </div>
+      <div id="p2Pips" class="pipsRow">
+        <span class="pip" data-ball="9"></span>
+        <span class="pip" data-ball="10"></span>
+        <span class="pip" data-ball="11"></span>
+        <span class="pip" data-ball="12"></span>
+        <span class="pip" data-ball="13"></span>
+        <span class="pip" data-ball="14"></span>
+        <span class="pip" data-ball="15"></span>
+      </div>
+      <span id="p2GroupLabel" class="pGroup">OPEN</span>
+    </div>
+  </div>
+</div>
+
+<!-- Center Cinematic Toast / Alert (Only appears on fouls / game events) -->
+<div id="toastNotification" class="toastNotice hidden">
+  <span id="toastText">FOUL • SCRATCH IN-HAND</span>
+</div>
+
+<!-- Bottom-Left Tactile English / Spin Widget -->
+<div id="spinWidget" title="Cue Ball English (Click/drag to set spin, double click to center)">
+  <div id="spinDisc">
+    <div id="spinCrosshairH"></div>
+    <div id="spinCrosshairV"></div>
+    <div id="spinPip"></div>
+  </div>
+  <span class="spinLabel">SPIN</span>
+</div>
+
+<!-- Dynamic Vertical Power Gauge (Slides in only while pulling back cue or holding Space) -->
+<div id="verticalPowerMeter" class="powerGauge hidden">
+  <span class="gaugeLabel">POWER</span>
+  <div class="gaugeTrack">
+    <div id="powerFillGauge" class="gaugeFill"></div>
+  </div>
+  <span id="powerPercent" class="gaugeValue">0%</span>
+</div>
+
+<!-- GTA VI Contextual Prompt (Subtle bottom center, auto-fades) -->
+<div id="gtaPromptBar">
+  <span class="keyCap">HOLD SPACE / DRAG</span> CHARGE SHOT &amp; STRIKE &nbsp;•&nbsp; 
+  <span class="keyCap">SCROLL / A-D</span> FINE AIM &nbsp;•&nbsp; 
+  <span class="keyCap">R</span> RACK &nbsp;•&nbsp; 
+  <span class="keyCap">F</span> FELT &nbsp;•&nbsp; 
+  <span class="keyCap">M</span> MODE
+</div>
+
+<!-- Top-Right Discreet Micro Action Badges -->
+<div id="quickActionsBar">
+  <button id="bQuickMode" class="quickPill" title="Switch Mode: VS CPU / 2-PLAYER / SOLO [M]">MODE</button>
+  <button id="bQuickFelt" class="quickPill" title="Cycle Table Felt Theme [F]">FELT</button>
+  <button id="bQuickRack" class="quickPill gold" title="Re-rack 15 Balls [R]">RACK</button>
+</div>
+
+<!-- Game Over Modal -->
+<div id="gameOverModal" class="hidden">
+  <div class="modalCard">
+    <div id="gameOverIcon">🏆</div>
+    <h2 id="gameOverTitle">VICTORY!</h2>
+    <p id="gameOverDesc">You legally pocketed the 8-Ball and cleared the table.</p>
+    <div class="modalActions">
+      <button id="bPlayAgain" class="gold wide">Play Again</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="src/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "version": 2,
+  "name": "neon-arcade-lounge",
+  "buildCommand": null,
+  "outputDirectory": ".",
+  "framework": null,
+  "cleanUrls": true,
+  "trailingSlash": false
+}

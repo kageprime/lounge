@@ -1,0 +1,26 @@
+{
+  "_help": "Map a prop TYPE (or 'type:id' for one instance) to a .glb in this folder. Anything not listed stays procedural. Remove an entry or set enabled:false to go back. See README.md.",
+  "models": {
+    "cabinet": {
+      "_note": "Arcade Machine Pack (CC0), Standard cabinet, 4 skins cycling by id number. The screen material gets the animated screen.",
+      "files": ["cab_alientox.glb", "cab_hotlava.glb", "cab_xoxoxo.glb", "cab_police.glb"],
+      "scale": 0.4745, "anchor": "back", "screen": "screen", "emissive": { "body": 1.5 }
+    },
+    "vending": {
+      "file": "vending.glb", "scale": 1,
+      "tint": [ { "material": "body", "scale": 0.55 }, { "material": "sign", "scale": 1, "emissive": 1.6 } ],
+      "emissive": { "glass": 1, "prod0": 1.2, "prod1": 1.2, "prod2": 1.2, "prod3": 1.2, "prod4": 1.2 }
+    },
+    "couch": {
+      "_note": "Kenney Furniture Kit (CC0). The sofa's blue upholstery material is recoloured to each couch's layout colour.",
+      "file": "loungeDesignSofa.glb", "scale": 2.4, "tint": [ { "material": "carpetBlue", "scale": 1 } ]
+    },
+    "stool": { "file": "stoolBar.glb", "height": 0.62, "tint": [ { "material": "carpet", "scale": 1 } ] },
+    "plant": { "file": "pottedPlant.glb", "height": 1.15 },
+    "table": { "file": "tableRound.glb", "height": 0.45 },
+    "sconce": {
+      "file": "lampWall.glb", "scale": 1.6, "anchor": "back", "offset": [0, 1.62, 0],
+      "tint": [ { "material": "lamp", "scale": 1, "emissive": 2.5 } ]
+    }
+  }
+}

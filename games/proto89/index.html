@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PROTO-89 · Anomaly Terminal</title>
+<style>
+:root {
+  --green: #33ff88;
+  --green-glow: rgba(51, 255, 136, 0.45);
+  --bg: #040c06;
+  --dark: #081a0e;
+  --amber: #ffaa33;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #020603;
+  color: var(--green);
+  font-family: 'Courier New', Courier, monospace;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  user-select: none;
+}
+#crtFrame {
+  position: relative;
+  width: min(860px, 94vw);
+  height: min(620px, 92vh);
+  background: var(--bg);
+  border: 4px solid #1a3822;
+  border-radius: 24px;
+  box-shadow: 0 0 50px rgba(51, 255, 136, 0.15), inset 0 0 80px rgba(0, 0, 0, 0.85);
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  overflow: hidden;
+}
+/* CRT Scanline Overlay */
+#crtFrame::after {
+  content: " ";
+  display: block;
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.04), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.04));
+  background-size: 100% 4px, 6px 100%;
+  pointer-events: none;
+  z-index: 20;
+}
+/* Screen curvature vignette */
+#crtFrame::before {
+  content: " ";
+  display: block;
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 50%, transparent 60%, rgba(2, 8, 4, 0.85) 100%);
+  pointer-events: none;
+  z-index: 19;
+}
+.termHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid var(--green);
+  padding-bottom: 10px;
+  font-weight: bold;
+  letter-spacing: 2px;
+  text-shadow: 0 0 8px var(--green-glow);
+}
+.termStatus {
+  animation: blink 1.2s infinite;
+  color: var(--amber);
+}
+@keyframes blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0.2; } }
+
+#screen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+  z-index: 10;
+}
+.hidden { display: none !important; }
+
+/* Oscilloscope Canvas */
+#scopeCanvas {
+  width: min(540px, 90%);
+  height: 180px;
+  background: var(--dark);
+  border: 1px solid var(--green);
+  border-radius: 8px;
+  box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: min(540px, 90%);
+}
+.sliderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 16px;
+  font-size: 13px;
+  letter-spacing: 1px;
+}
+input[type=range] {
+  flex: 1;
+  accent-color: var(--green);
+  cursor: pointer;
+}
+button {
+  font-family: inherit;
+  font-weight: bold;
+  background: var(--dark);
+  color: var(--green);
+  border: 2px solid var(--green);
+  border-radius: 8px;
+  padding: 10px 24px;
+  font-size: 14px;
+  cursor: pointer;
+  letter-spacing: 1.5px;
+  transition: all 0.15s ease;
+  box-shadow: 0 0 10px var(--green-glow);
+}
+button:hover {
+  background: var(--green);
+  color: var(--bg);
+  box-shadow: 0 0 20px var(--green);
+}
+button:active { transform: scale(0.97); }
+
+/* Cipher Grid */
+.matrixGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin: 10px 0;
+}
+.nodeBtn {
+  width: 60px;
+  height: 60px;
+  font-size: 18px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.nodeBtn.active {
+  background: var(--green);
+  color: var(--bg);
+}
+.nodeBtn.correct {
+  border-color: var(--amber);
+  color: var(--amber);
+}
+
+.logBox {
+  background: rgba(8, 26, 14, 0.85);
+  border: 1px solid var(--green);
+  padding: 16px;
+  border-radius: 8px;
+  max-width: 600px;
+  text-align: left;
+  line-height: 1.6;
+  font-size: 13px;
+  letter-spacing: 0.5px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.logBox b { color: var(--amber); }
+.successBanner {
+  font-size: 18px;
+  font-weight: bold;
+  color: var(--amber);
+  text-shadow: 0 0 12px rgba(255, 170, 51, 0.6);
+  letter-spacing: 2px;
+}
+</style>
+</head>
+<body>
+<div id="crtFrame">
+  <div class="termHeader">
+    <span>TWILIGHT LABS · PROTO-89</span>
+    <span class="termStatus" id="termStatus">ANOMALY DETECTED</span>
+  </div>
+
+  <div id="screen">
+    <!-- STAGE 1: SIGNAL CALIBRATION -->
+    <div id="stage1" class="screenStage">
+      <p style="margin-bottom:8px;font-size:14px;letter-spacing:1px;">CALIBRATE FREQUENCY TO SUB-HARMONIC 444 Hz</p>
+      <canvas id="scopeCanvas" width="540" height="180"></canvas>
+      <div class="controls">
+        <div class="sliderRow">
+          <span>TUNER:</span>
+          <input type="range" id="freqSlider" min="200" max="600" value="280">
+          <span id="freqVal">280 Hz</span>
+        </div>
+        <button id="bLockFreq">ENGAGE PHASE LOCK</button>
+      </div>
+    </div>
+
+    <!-- STAGE 2: MEMORY CIPHER -->
+    <div id="stage2" class="screenStage hidden">
+      <p style="margin-bottom:8px;font-size:14px;">SIGNAL LOCKED! RECONSTRUCT CIPHER SEQUENCE</p>
+      <p id="cipherHint" style="color:var(--amber);margin-bottom:12px;font-size:13px;">ENTER KEY: <span id="cipherSeq">T - W - I - L - I - G - H - T</span></p>
+      <div class="matrixGrid" id="matrixGrid"></div>
+      <p id="matrixFeedback" style="font-size:12px;min-height:18px;color:var(--green);"></p>
+    </div>
+
+    <!-- STAGE 3: LOG DECRYPTION & REWARD -->
+    <div id="stage3" class="screenStage hidden">
+      <div class="successBanner">✦ CORE ARCHIVE BREACHED ✦</div>
+      <div class="logBox">
+        <b>[RECORDING DATE: 18-OCT-1989 // ARCHIVE #009]</b><br><br>
+        "If you are reading this screen, the lounge coordinate has shifted into resonance.<br>
+        The Twilight Phase is not an error in the simulation—it is the underlying geometry.<br>
+        Every cabinet here is linked to the primary pulse generator behind the eastern wall.<br><br>
+        Take this decryption key and tickets to claim your relics at the Prize Counter.<br>
+        Listen closely to the jukebox frequency. The night has only just begun."
+      </div>
+      <div style="margin-top:16px;display:flex;gap:12px;">
+        <button id="bClaimReward">CLAIM 150 🎟️ &amp; 50 🪙</button>
+        <button id="bTriggerTwilight" style="border-color:var(--amber);color:var(--amber);">ACTIVATE TWILIGHT SHIFT ⚡</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Web Audio synthesizer for retro terminal sound effects
+class TermAudio {
+  constructor() {
+    this.ctx = null;
+  }
+  _init() {
+    if (!this.ctx) {
+      const C = window.AudioContext || window.webkitAudioContext;
+      this.ctx = new C();
+    }
+    if (this.ctx.state === 'suspended') this.ctx.resume();
+  }
+  blip(freq = 600, dur = 0.05, type = 'square') {
+    this._init();
+    if (!this.ctx) return;
+    const osc = this.ctx.createOscillator(), g = this.ctx.createGain();
+    osc.type = type; osc.frequency.value = freq;
+    g.gain.setValueAtTime(0.08, this.ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + dur);
+    osc.connect(g); g.connect(this.ctx.destination);
+    osc.start(); osc.stop(this.ctx.currentTime + dur);
+  }
+  chime() {
+    [523, 659, 784, 1047].forEach((f, i) => {
+      setTimeout(() => this.blip(f, 0.15, 'sine'), i * 80);
+    });
+  }
+  glitch() {
+    this._init();
+    if (!this.ctx) return;
+    const n = Math.floor(this.ctx.sampleRate * 0.1), b = this.ctx.createBuffer(1, n, this.ctx.sampleRate), d = b.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * 0.2;
+    const src = this.ctx.createBufferSource(); src.buffer = b;
+    src.connect(this.ctx.destination); src.start();
+  }
+}
+const sound = new TermAudio();
+
+// Oscilloscope Visuals
+const cv = document.getElementById('scopeCanvas'), ctx = cv.getContext('2d');
+const freqSlider = document.getElementById('freqSlider');
+const freqVal = document.getElementById('freqVal');
+let freq = 280, targetFreq = 444, animFrame = 0;
+
+function drawScope(time) {
+  ctx.fillStyle = 'rgba(8, 26, 14, 0.4)';
+  ctx.fillRect(0, 0, cv.width, cv.height);
+
+  // Grid
+  ctx.strokeStyle = 'rgba(51, 255, 136, 0.12)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < cv.width; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, cv.height); ctx.stroke(); }
+  for (let y = 0; y < cv.height; y += 30) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(cv.width, y); ctx.stroke(); }
+
+  // Target Harmonic Wave (Faint Amber)
+  ctx.strokeStyle = 'rgba(255, 170, 51, 0.45)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  for (let x = 0; x < cv.width; x++) {
+    const y = cv.height / 2 + Math.sin(x * 0.05 + time * 0.005) * 35;
+    if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // Tuner Wave (Bright Green)
+  const diff = Math.abs(freq - targetFreq);
+  const lock = diff < 8;
+  ctx.strokeStyle = lock ? '#ffaa33' : '#33ff88';
+  ctx.lineWidth = lock ? 2.5 : 2;
+  ctx.shadowColor = lock ? '#ffaa33' : '#33ff88';
+  ctx.shadowBlur = lock ? 15 : 8;
+
+  ctx.beginPath();
+  const freqScale = freq / 444 * 0.05;
+  for (let x = 0; x < cv.width; x++) {
+    const noise = lock ? 0 : (Math.random() - 0.5) * (diff / 20);
+    const y = cv.height / 2 + Math.sin(x * freqScale + time * 0.006) * 35 + noise;
+    if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  animFrame = requestAnimationFrame(drawScope);
+}
+requestAnimationFrame(drawScope);
+
+freqSlider.oninput = () => {
+  freq = parseInt(freqSlider.value, 10);
+  freqVal.textContent = freq + ' Hz';
+  sound.blip(freq, 0.04);
+};
+
+// Stage 1 -> 2
+document.getElementById('bLockFreq').onclick = () => {
+  const diff = Math.abs(freq - targetFreq);
+  if (diff <= 8) {
+    sound.chime();
+    document.getElementById('stage1').classList.add('hidden');
+    document.getElementById('stage2').classList.remove('hidden');
+    initCipher();
+  } else {
+    sound.glitch();
+    document.getElementById('termStatus').textContent = 'LOCK FAILED · DRIFT: ' + diff + 'Hz';
+    setTimeout(() => { document.getElementById('termStatus').textContent = 'ANOMALY DETECTED'; }, 1500);
+  }
+};
+
+// Stage 2: Cipher Grid
+const TARGET_CHARS = ['T', 'W', 'I', 'L', 'I', 'G', 'H', 'T'];
+let cipherIdx = 0;
+
+function initCipher() {
+  const grid = document.getElementById('matrixGrid');
+  grid.innerHTML = '';
+  cipherIdx = 0;
+  const pool = ['T', 'W', 'I', 'L', 'G', 'H', 'X', '8', '9', '0', 'A', 'F', 'C', 'E', '7', 'Z'];
+  // Shuffle pool deterministically
+  pool.sort(() => Math.random() - 0.5);
+
+  pool.forEach(char => {
+    const btn = document.createElement('button');
+    btn.className = 'nodeBtn';
+    btn.textContent = char;
+    btn.onclick = () => {
+      sound.blip(700 + cipherIdx * 60, 0.06);
+      if (char === TARGET_CHARS[cipherIdx]) {
+        cipherIdx++;
+        btn.classList.add('correct');
+        document.getElementById('matrixFeedback').textContent = `INPUT OK: ${TARGET_CHARS.slice(0, cipherIdx).join(' ')}`;
+        if (cipherIdx === TARGET_CHARS.length) {
+          sound.chime();
+          setTimeout(() => {
+            document.getElementById('stage2').classList.add('hidden');
+            document.getElementById('stage3').classList.remove('hidden');
+            document.getElementById('termStatus').textContent = 'SECURITY BREACHED';
+          }, 600);
+        }
+      } else {
+        sound.glitch();
+        document.getElementById('matrixFeedback').textContent = 'ERR: SEQUENCE RESET';
+        cipherIdx = 0;
+        document.querySelectorAll('.nodeBtn').forEach(b => b.classList.remove('correct'));
+      }
+    };
+    grid.appendChild(btn);
+  });
+}
+
+// Stage 3: Claim Rewards
+let rewarded = false;
+document.getElementById('bClaimReward').onclick = () => {
+  if (rewarded) return;
+  rewarded = true;
+  sound.chime();
+  document.getElementById('bClaimReward').textContent = 'REWARD TRANSFERRED';
+  document.getElementById('bClaimReward').disabled = true;
+  if (window.parent) {
+    window.parent.postMessage({ type: 'gameReward', tickets: 150, coins: 50 }, '*');
+  }
+};
+
+document.getElementById('bTriggerTwilight').onclick = () => {
+  sound.glitch();
+  if (window.parent) {
+    window.parent.postMessage({ type: 'triggerTwilight' }, '*');
+  }
+};
+</script>
+</body>
+</html>

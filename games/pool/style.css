@@ -1,0 +1,464 @@
+:root {
+  --panel: rgba(12, 16, 28, 0.72);
+  --panel-solid: #0d111d;
+  --gold: #ffb84a;
+  --green: #5fe08a;
+  --cyan: #54e0ee;
+  --red: #ff4757;
+  --ink: #f1f2f6;
+  --mute: #8e95a5;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+body {
+  background: #06070c;
+  color: var(--ink);
+  font-family: var(--font-sans);
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  position: relative;
+}
+
+#gl {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  z-index: 1;
+}
+
+.vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  box-shadow: inset 0 0 120px rgba(0, 0, 0, 0.85);
+}
+
+/* ========================================================
+   GTA-STYLE TOP-LEFT MATCH CARD
+   ======================================================== */
+#matchCard {
+  position: absolute;
+  top: 18px;
+  left: 22px;
+  z-index: 15;
+  background: var(--panel);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 12px;
+  padding: 10px 14px;
+  backdrop-filter: blur(20px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.65);
+  min-width: 240px;
+  pointer-events: none;
+}
+
+.matchHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.gameTag {
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 1.2px;
+  color: var(--gold);
+  font-family: var(--font-mono);
+}
+
+.modeTag {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  padding: 2px 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  color: var(--mute);
+}
+
+.playersContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 6px;
+  border-radius: 6px;
+  transition: background 0.2s ease;
+}
+
+.pRow.active {
+  background: rgba(84, 224, 238, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(84, 224, 238, 0.22);
+}
+
+.pMeta {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 74px;
+}
+
+.pTurnDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: transparent;
+  transition: all 0.2s ease;
+}
+
+.pRow.active .pTurnDot {
+  background: var(--cyan);
+  box-shadow: 0 0 8px var(--cyan);
+}
+
+.pName {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: var(--mute);
+}
+
+.pRow.active .pName {
+  color: var(--ink);
+}
+
+.pipsRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pip {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.05);
+  transition: all 0.3s ease;
+}
+
+.pip.potted {
+  border-color: rgba(0, 0, 0, 0.4);
+  box-shadow: 0 0 6px currentColor;
+}
+
+.pGroup {
+  font-size: 9px;
+  font-weight: 800;
+  font-family: var(--font-mono);
+  color: var(--mute);
+  letter-spacing: 0.6px;
+  width: 48px;
+  text-align: right;
+}
+
+.pGroup.solids { color: #35e0ff; }
+.pGroup.stripes { color: #ff9f1a; }
+
+/* ========================================================
+   CINEMATIC TOAST NOTIFICATION
+   ======================================================== */
+.toastNotice {
+  position: absolute;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  pointer-events: none;
+  background: rgba(255, 71, 87, 0.9);
+  color: #fff;
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  box-shadow: 0 8px 24px rgba(255, 71, 87, 0.4);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.toastNotice.hidden {
+  opacity: 0;
+  transform: translate(-50%, -10px);
+  pointer-events: none;
+}
+
+/* ========================================================
+   BOTTOM-LEFT TACTILE ENGLISH / SPIN DISC
+   ======================================================== */
+#spinWidget {
+  position: absolute;
+  bottom: 22px;
+  left: 22px;
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--panel);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  padding: 6px 12px 6px 8px;
+  border-radius: 28px;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+}
+
+#spinDisc {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #ffffff 0%, #e2e4eb 70%, #9aa0b4 100%);
+  border: 1.5px solid rgba(255, 255, 255, 0.6);
+  position: relative;
+  box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.8), 0 4px 10px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+#spinCrosshairH {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: rgba(0, 0, 0, 0.18);
+  pointer-events: none;
+}
+
+#spinCrosshairV {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(0, 0, 0, 0.18);
+  pointer-events: none;
+}
+
+#spinPip {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ff3838;
+  border: 1px solid #fff;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  margin: -3.5px 0 0 -3.5px;
+  pointer-events: none;
+  box-shadow: 0 0 5px rgba(255, 56, 56, 0.8);
+  transition: transform 0.04s ease;
+}
+
+.spinLabel {
+  font-size: 10px;
+  font-weight: 800;
+  font-family: var(--font-mono);
+  letter-spacing: 1px;
+  color: var(--mute);
+}
+
+/* ========================================================
+   DYNAMIC VERTICAL POWER GAUGE
+   ======================================================== */
+.powerGauge {
+  position: absolute;
+  right: 28px;
+  bottom: 84px;
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  background: var(--panel);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 10px 8px;
+  border-radius: 12px;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.powerGauge.hidden {
+  opacity: 0;
+  transform: translateX(12px);
+  pointer-events: none;
+}
+
+.gaugeLabel {
+  font-size: 8px;
+  font-weight: 800;
+  font-family: var(--font-mono);
+  letter-spacing: 1px;
+  color: var(--mute);
+}
+
+.gaugeTrack {
+  width: 12px;
+  height: 120px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 6px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column-reverse;
+}
+
+.gaugeFill {
+  width: 100%;
+  height: 0%;
+  background: linear-gradient(0deg, #5fe08a 0%, #ffb84a 60%, #ff4757 100%);
+  border-radius: 5px;
+  transition: height 0.04s linear;
+}
+
+.gaugeValue {
+  font-size: 9px;
+  font-weight: 800;
+  font-family: var(--font-mono);
+  color: var(--gold);
+}
+
+/* ========================================================
+   GTA VI CONTEXT PROMPT BAR
+   ======================================================== */
+#gtaPromptBar {
+  position: absolute;
+  bottom: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  pointer-events: none;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  color: rgba(255, 255, 255, 0.45);
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+  white-space: nowrap;
+  transition: opacity 0.5s ease;
+}
+
+#gtaPromptBar.faded {
+  opacity: 0.15;
+}
+
+.keyCap {
+  color: var(--gold);
+  font-weight: 800;
+}
+
+/* ========================================================
+   TOP-RIGHT QUICK ACTION BUTTONS
+   ======================================================== */
+#quickActionsBar {
+  position: absolute;
+  top: 18px;
+  right: 22px;
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.quickPill {
+  background: var(--panel);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--mute);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 800;
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  backdrop-filter: blur(16px);
+  letter-spacing: 0.8px;
+  transition: all 0.15s ease;
+}
+
+.quickPill:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--ink);
+  transform: translateY(-1px);
+}
+
+.quickPill.gold {
+  border-color: rgba(255, 184, 74, 0.35);
+  color: var(--gold);
+}
+
+.quickPill.gold:hover {
+  background: var(--gold);
+  color: #1a1202;
+}
+
+/* ========================================================
+   GAME OVER MODAL
+   ======================================================== */
+.hidden { display: none !important; }
+
+#gameOverModal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(10px);
+}
+
+.modalCard {
+  background: rgba(14, 18, 32, 0.95);
+  border: 1px solid rgba(84, 224, 238, 0.4);
+  border-radius: 20px;
+  padding: 28px;
+  width: 90%;
+  max-width: 360px;
+  text-align: center;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.85);
+}
+
+#gameOverIcon { font-size: 46px; margin-bottom: 8px; }
+#gameOverTitle { font-size: 22px; font-weight: 900; color: var(--gold); margin-bottom: 8px; letter-spacing: 1px; }
+#gameOverDesc { font-size: 12px; color: var(--mute); line-height: 1.5; margin-bottom: 22px; }
+
+.modalActions button {
+  background: var(--gold);
+  color: #1a1202;
+  border: none;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 12px;
+  border-radius: 10px;
+  width: 100%;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  transition: transform 0.1s ease, filter 0.1s ease;
+}
+
+.modalActions button:hover {
+  filter: brightness(1.15);
+  transform: scale(1.02);
+}

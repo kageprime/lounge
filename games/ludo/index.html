@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LUDO · Club No.9 Edition</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&display=swap">
+<link rel="stylesheet" href="style.css">
+<!-- Three.js and Rapier come from the CDN (pinned versions). For fully offline play, download both and change these paths. -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/",
+    "@dimforge/rapier3d-compat": "https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.14.0/rapier.es.js"
+  }
+}
+</script>
+</head>
+<body>
+<script>
+  if (location.protocol === 'file:') {
+    document.addEventListener('DOMContentLoaded', function () {
+      var l = document.getElementById('loading');
+      l.innerHTML = 'Browsers block ES modules on file:// - please do not double-click index.html.<br><br>Windows: double-click <b>start.bat</b> (opens http://localhost:8000)<br>Mac / Linux: run <b>node serve.mjs</b> or <b>python3 -m http.server 8000</b> in this folder, then open http://localhost:8000';
+      l.style.cssText = 'color:#ffb84a;line-height:2;text-align:center;max-width:80vw;font-size:13px';
+    });
+  }
+</script>
+<canvas id="gl"></canvas>
+<div id="loading">LOADING<span class="dots"></span></div>
+
+<!-- projected tags (follow things in the 3D scene) -->
+<div id="flashfx"></div>
+<div id="tags"></div>
+<div id="dietag" hidden></div>
+
+<!-- HUD -->
+<div id="hud" hidden>
+  <div id="turn" class="panel"></div>
+  <div id="cards"></div>
+  <div id="flash" hidden></div>
+  <div id="power" class="panel" hidden><div class="lbl">THROW POWER</div><div class="bar" id="powerbar"></div></div>
+  <button id="rollbtn" class="btn big" hidden>HOLD TO THROW</button>
+  <div id="hints"></div>
+  <div id="camtag" class="panel"></div>
+</div>
+
+<!-- menu -->
+<div id="menu" class="overlay">
+  <div class="panel card">
+    <h1>LUDO</h1>
+    <div class="sub">Club No.9 edition &middot; big dice</div>
+    <div class="lbl">PLAYERS <small>(click a seat to change it)</small></div>
+    <div id="seats"></div>
+    <div class="presets">
+      <button class="btn small" data-preset="cpu">YOU vs 3 CPU</button>
+      <button class="btn small" data-preset="duel">YOU vs 1 CPU</button>
+      <button class="btn small" data-preset="local">2 PLAYERS</button>
+      <button class="btn small" data-preset="four">4 PLAYERS</button>
+      <button class="btn small" data-preset="watch">WATCH CPUs</button>
+    </div>
+    <div class="lbl">CPU SKILL</div>
+    <div id="diffs" class="seg"></div>
+    <button id="start" class="btn big">START <kbd>ENTER</kbd></button>
+    <div class="rules">Throw a <b>6</b> to leave the yard &middot; 6, capture or reaching home = roll again &middot; three 6s in a row lose the turn &middot; stars and start squares are safe &middot; exact roll to get home</div>
+  </div>
+</div>
+
+<!-- pause -->
+<div id="pause" class="overlay" hidden>
+  <div class="panel card small">
+    <h2>PAUSED</h2>
+    <button class="btn" id="p-resume">RESUME <kbd>ESC</kbd></button>
+    <button class="btn" id="p-restart">RESTART GAME</button>
+    <button class="btn" id="p-menu">MAIN MENU</button>
+    <div class="keys">
+      <div><kbd>SPACE</kbd> hold &amp; release to throw</div>
+      <div><kbd>1</kbd>-<kbd>4</kbd> or click: move that pawn</div>
+      <div><kbd>C</kbd> camera &nbsp; <kbd>&larr;&rarr;&uarr;&darr;</kbd> orbit &nbsp; <kbd>[</kbd><kbd>]</kbd> zoom</div>
+      <div><kbd>F</kbd> fast-forward &nbsp; <kbd>M</kbd> sound &nbsp; </div>
+    </div>
+  </div>
+</div>
+
+<!-- game over -->
+<div id="over" class="overlay" hidden>
+  <div class="panel card">
+    <h2 id="over-title"></h2>
+    <div id="over-stats"></div>
+    <div class="row">
+      <button class="btn big" id="o-again">REMATCH <kbd>ENTER</kbd></button>
+      <button class="btn" id="o-menu">MENU</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
