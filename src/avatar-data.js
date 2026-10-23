@@ -1,13 +1,13 @@
 // Avatars are just JSON loadouts. The renderer turns a loadout into a mesh; a server only ever stores/sends this JSON.
 export const OPTIONS = {
   skin:   ['#f5d0b0', '#e8b48a', '#c98a5e', '#a5673f', '#7a4a2c', '#4f2f1c'],
-  hair:   ['short', 'long', 'bun', 'mohawk', 'cap', 'afro', 'none'],
+  hair:   ['short', 'locs', 'fade', 'long', 'bun', 'afro', 'cap', 'mohawk', 'none'],
   hairColor: ['#201814', '#5a3a22', '#b5793a', '#e6c27a', '#d1495b', '#4d7cff', '#8a5cff', '#e9e9ee'],
-  top:    ['tee', 'hoodie', 'jacket'],
+  top:    ['tee', 'hoodie', 'jacket', 'bomber', 'jersey'],
   topColor: ['#ff4d6d', '#35e0c9', '#ffd166', '#7a6bff', '#ff8a3d', '#4dd0ff', '#e9e9ee', '#2b2f44'],
-  bottom: ['jeans', 'shorts', 'skirt'],
+  bottom: ['jeans', 'cargo', 'shorts', 'skirt'],
   bottomColor: ['#2f4a8a', '#2b2f44', '#6b4f3a', '#3a3a3a', '#7a2f5a', '#d9d2c3'],
-  shoes:  ['#f2f2f2', '#d1495b', '#222222', '#ffd166'],
+  shoes:  ['#f2f2f2', '#d1495b', '#222222', '#ffd166', '#35e0c9'],
   accessory: ['none', 'glasses', 'shades', 'headphones', 'halo', 'crown'],
   body:   ['slim', 'regular', 'broad'],
 };

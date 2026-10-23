@@ -1125,7 +1125,7 @@ kbd{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);bord
   height: 16px;
 }
 
-/* Card Modal */
+/* Card Modal + Side-by-Side Full-Body 3D Character Showcase */
 #cardModal {
   position: fixed;
   inset: 0;
@@ -1137,8 +1137,8 @@ kbd{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);bord
 .cardModalBackdrop {
   position: absolute;
   inset: 0;
-  background: rgba(6, 8, 18, 0.72);
-  backdrop-filter: blur(8px);
+  background: radial-gradient(circle at 50% 50%, rgba(10, 12, 28, 0.55), rgba(5, 6, 15, 0.82));
+  backdrop-filter: blur(4px);
 }
 .cardModalBox {
   position: relative;
@@ -1146,8 +1146,87 @@ kbd{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);bord
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   animation: cardPopIn 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.cardShowcaseRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(16px, 3.5vw, 38px);
+  flex-wrap: wrap;
+}
+.cardAvatarStage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 16px 14px;
+  border-radius: 22px;
+  background: radial-gradient(circle at 50% 68%, rgba(84, 224, 238, 0.14), rgba(16, 20, 38, 0.78) 72%);
+  border: 1px solid rgba(84, 224, 238, 0.28);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.65), inset 0 0 32px rgba(255, 77, 154, 0.12);
+}
+#cardAvatarCanvas {
+  width: 272px;
+  height: 340px;
+  cursor: grab;
+  touch-action: none;
+}
+#cardAvatarCanvas:active {
+  cursor: grabbing;
+}
+.cardAvatarBubble {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 14px;
+  border-radius: 99px;
+  background: rgba(16, 20, 38, 0.95);
+  border: 1.5px solid var(--cyan);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.6), 0 0 16px rgba(84, 224, 238, 0.35);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 4;
+}
+.cardRotateHint {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--mute);
+  margin-top: 4px;
+  margin-bottom: 8px;
+}
+.cardEmoteBar {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 280px;
+}
+.cardEmoteBar button {
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+.cardEmoteBar button:hover {
+  border-color: var(--cyan);
+  background: rgba(84, 224, 238, 0.18);
+}
+.cardModalRight {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
 }
 @keyframes cardPopIn {
   from { opacity: 0; transform: scale(0.88) translateY(14px); }
@@ -1158,6 +1237,7 @@ kbd{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);bord
   gap: 8px;
   flex-wrap: wrap;
   justify-content: center;
+  max-width: 340px;
 }
 
 /* ---------- VS Walk-out Splash ---------- */
@@ -1605,4 +1685,321 @@ kbd{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);bord
   display: block;
   height: 100%;
   background: linear-gradient(90deg, var(--cyan), var(--green));
+}
+
+/* ---------- Cyber-Arcade Tactical HUD & In-World 3D Hero Inspection ---------- */
+.svgIcon {
+  display: inline-block;
+  vertical-align: -3px;
+  flex-shrink: 0;
+}
+
+#brand {
+  padding: 6px 14px;
+  border-radius: 4px;
+  clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
+  background: linear-gradient(135deg, rgba(10, 13, 26, 0.94), rgba(18, 22, 42, 0.9));
+  border: 1px solid rgba(84, 224, 238, 0.35);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(84, 224, 238, 0.25);
+  gap: 10px;
+}
+
+.hudBrandPlate {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hudBrandPlate b {
+  font-family: 'Chakra Petch', Inter, sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 1.8px;
+  color: var(--cyan);
+  text-shadow: 0 0 12px rgba(84, 224, 238, 0.45);
+}
+
+.hudBrandPulse {
+  width: 7px;
+  height: 7px;
+  background: var(--green);
+  box-shadow: 0 0 8px var(--green);
+  transform: rotate(45deg);
+}
+
+#wallet span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  background: rgba(0, 0, 0, 0.38);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+}
+
+#badgeCoins .coinSvg { color: var(--gold); }
+#badgeTickets .ticketSvg { color: var(--cyan); }
+
+.hudArcadeBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 3px;
+  clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+  font-family: 'Chakra Petch', Inter, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  background: linear-gradient(135deg, rgba(255, 184, 74, 0.22), rgba(255, 77, 154, 0.18));
+  border: 1px solid rgba(255, 184, 74, 0.65);
+  color: var(--gold);
+}
+
+.hudArcadeBtn:hover {
+  background: linear-gradient(135deg, rgba(255, 184, 74, 0.38), rgba(255, 77, 154, 0.28));
+  color: #fff;
+}
+
+.hudKey {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  padding: 1px 5px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 184, 74, 0.4);
+  color: var(--gold);
+  border-radius: 3px;
+}
+
+.hudCamRig {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px;
+  background: rgba(6, 8, 18, 0.65);
+  border: 1px solid rgba(84, 224, 238, 0.24);
+  clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
+}
+
+.camRigBtn {
+  height: 24px;
+  min-width: 0;
+  padding: 0 8px;
+  border: none;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--mute);
+  font-family: 'Chakra Petch', Inter, sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.camRigBtn:hover {
+  color: #fff;
+  background: rgba(84, 224, 238, 0.12);
+}
+
+.camRigBtn.on {
+  background: var(--cyan);
+  color: #051018;
+  box-shadow: 0 0 10px rgba(84, 224, 238, 0.45);
+}
+
+.hudClockBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Tactical Corner Brackets & Hero Dossier Card */
+.pCard.heroDossier {
+  width: 310px;
+}
+
+.pCard.heroDossier .pCardInner {
+  clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+  border-radius: 4px;
+  padding: 16px 16px 14px;
+  background:
+    linear-gradient(160deg, rgba(12, 16, 32, 0.95), rgba(8, 10, 22, 0.98));
+}
+
+.pcCorner {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-color: var(--cyan);
+  border-style: solid;
+  pointer-events: none;
+  z-index: 4;
+  opacity: 0.8;
+}
+.pcCorner.tl { top: 6px; left: 6px; border-width: 2px 0 0 2px; }
+.pcCorner.tr { top: 6px; right: 6px; border-width: 2px 2px 0 0; }
+.pcCorner.bl { bottom: 6px; left: 6px; border-width: 0 0 2px 2px; }
+.pcCorner.br { bottom: 6px; right: 6px; border-width: 0 2px 2px 0; }
+
+.pcDossierKicker {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 8px 0 6px;
+  padding: 4px 10px;
+  background: rgba(84, 224, 238, 0.09);
+  border-top: 1px solid rgba(84, 224, 238, 0.28);
+  border-bottom: 1px solid rgba(84, 224, 238, 0.28);
+  font-family: 'Chakra Petch', Inter, sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  color: var(--cyan);
+}
+
+.pcPulseDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 8px var(--green);
+  display: inline-block;
+}
+
+.heroTargetHeader {
+  display: none;
+}
+
+.heroViewportFrame {
+  display: none;
+}
+
+/* In-World 3D Hero Inspection Mode:
+   No blur over the live 3D character on the left; Dossier floats cleanly on the right! */
+#cardModal.inWorldInspect .cardModalBackdrop {
+  background: linear-gradient(90deg, rgba(6, 8, 18, 0.04) 0%, rgba(6, 8, 18, 0.18) 46%, rgba(8, 10, 24, 0.78) 100%);
+  backdrop-filter: none;
+}
+
+#cardModal.inWorldInspect .cardModalBox {
+  width: min(1020px, 95vw);
+}
+
+#cardModal.inWorldInspect .cardShowcaseRow {
+  width: 100%;
+  justify-content: space-between;
+  align-items: stretch;
+}
+
+#cardModal.inWorldInspect .cardAvatarStage {
+  flex: 1 1 420px;
+  min-height: 410px;
+  justify-content: space-between;
+  background: linear-gradient(180deg, rgba(10, 14, 28, 0.28) 0%, transparent 25%, transparent 75%, rgba(10, 14, 28, 0.65) 100%);
+  border: 1px solid rgba(84, 224, 238, 0.32);
+  border-radius: 6px;
+  clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px);
+  box-shadow: inset 0 0 28px rgba(84, 224, 238, 0.08);
+  cursor: grab;
+}
+
+#cardModal.inWorldInspect .cardAvatarStage:active {
+  cursor: grabbing;
+}
+
+#cardModal.inWorldInspect .heroTargetHeader {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 8px;
+  border-bottom: 1px solid rgba(84, 224, 238, 0.2);
+}
+
+.heroLockTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'Chakra Petch', Inter, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  color: var(--cyan);
+}
+
+#cardModal.inWorldInspect .heroViewportFrame {
+  display: block;
+  position: relative;
+  flex: 1;
+  width: 100%;
+  min-height: 270px;
+  pointer-events: none;
+}
+
+.hvCorner {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-color: rgba(84, 224, 238, 0.7);
+  border-style: solid;
+}
+.hvCorner.tl { top: 12px; left: 12px; border-width: 2px 0 0 2px; }
+.hvCorner.tr { top: 12px; right: 12px; border-width: 2px 2px 0 0; }
+.hvCorner.bl { bottom: 12px; left: 12px; border-width: 0 0 2px 2px; }
+.hvCorner.br { bottom: 12px; right: 12px; border-width: 0 2px 2px 0; }
+
+.cardEmoteBar {
+  max-width: 100%;
+  gap: 6px;
+}
+
+.cardEmoteBar button,
+.cardModalActions button,
+.arcTab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-family: 'Chakra Petch', Inter, sans-serif;
+  letter-spacing: 0.5px;
+  border-radius: 4px;
+  clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
+}
+
+/* ---------- Incoming 1v1 Challenge Banner ---------- */
+.challengeBanner {
+  position: fixed;
+  top: 66px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 180;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-radius: 4px;
+  clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
+  background: rgba(16, 20, 38, 0.96);
+  border: 1.5px solid var(--gold);
+  box-shadow: 0 14px 40px rgba(0,0,0,0.7), 0 0 24px rgba(255,184,74,0.35);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  pointer-events: auto;
+}
+.challengeBanner b {
+  color: var(--cyan);
+}
+.challengeBanner .chActions {
+  display: flex;
+  gap: 6px;
 }

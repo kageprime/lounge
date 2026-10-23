@@ -337,7 +337,8 @@ export class Stage {
 
   update(dt) {
     this.time += dt;
-    const shot = this.rig.compute(this.phase, this.aspect || 1.78);
+    const movingPawn = this.pawns.find((p) => p.anim) || null;
+    const shot = this.rig.compute(this.phase, this.aspect || 1.78, movingPawn);
     this.setCameraTarget(shot.pos, shot.look, { fov: shot.fov, k: shot.k });
     const a = 1 - Math.exp(-dt * this.camK);
     this.camPos.lerp(this.tgtPos, a); this.camLook.lerp(this.tgtLook, a); this.camFov += (this.tgtFov - this.camFov) * a;

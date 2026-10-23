@@ -66,26 +66,27 @@ export function npcProfile(id) {
 }
 
 // ---------- Player Card ----------
-export function cardHTML(m, { compact = false } = {}) {
+export function cardHTML(m, { compact = false, hero = false } = {}) {
   const [c1, c2] = m.tier.colors;
-  const img = portrait(m.loadout, 'bust');
+  const img = hero ? null : portrait(m.loadout, 'bust');
   const rc = RANK_COLORS[m.rank.id];
   const trophySlots = [0, 1, 2].map(i => {
     const t = m.trophies[i];
     return `<div class="pcTrophy ${t ? 'has' : ''}" title="${t ? esc(t.name) : 'Empty trophy slot · win an event'}">${ICON.trophy}</div>`;
   }).join('');
   const rows = m.games.map(g => `<div class="pcRow"><span class="pcRowIcon">${gameIcon(g.game)}</span><span class="pcRowName">${esc(g.name)}</span><span class="pcRowVal">${g.won}<i>/${g.played}</i></span><span class="pcRowWr" style="--wr:${g.wr}%">${g.played ? g.wr + '%' : '—'}</span></div>`).join('');
-  return `<div class="pCard tier-${m.tier.id} ${compact ? 'compact' : ''}" style="--c1:${c1};--c2:${c2};--rc:${rc}">
+  return `<div class="pCard tier-${m.tier.id} ${compact ? 'compact' : ''} ${hero ? 'heroDossier' : ''}" style="--c1:${c1};--c2:${c2};--rc:${rc}">
     <div class="pCardInner">
       <div class="pcFoil"></div><div class="pcShine"></div>
+      <div class="pcCorner tl"></div><div class="pcCorner tr"></div><div class="pcCorner bl"></div><div class="pcCorner br"></div>
       <div class="pcTop">
         <div class="pcLevel"><b>${m.level}</b><span>LVL</span></div>
         <div class="pcTag">${esc(m.tag)}</div>
         <div class="pcRank">${rankEmblem(m.rank)}<span>${esc(m.rank.name)}</span></div>
       </div>
-      <div class="pcPortrait">${img ? `<img src="${img}" alt="">` : `<div class="pcNoImg">${ICON.user}</div>`}</div>
+      ${hero ? `<div class="pcDossierKicker"><span class="pcPulseDot"></span>LIVE COMPETITOR TELEMETRY</div>` : `<div class="pcPortrait">${img ? `<img src="${img}" alt="">` : `<div class="pcNoImg">${ICON.user}</div>`}</div>`}
       <div class="pcName">${esc(m.name)}${m.crew ? `<small>[${esc(m.crew)}]</small>` : ''}</div>
-      <div class="pcTierLine"><span>${esc(m.tier.name)} Card</span><span>${m.rating} SR</span></div>
+      <div class="pcTierLine"><span>${esc(m.tier.name)} License</span><span>${m.rating} ELO</span></div>
       <div class="pcXp"><div style="width:${Math.round(m.progress * 100)}%"></div></div>
       ${compact ? '' : `<div class="pcStats">
         <div><b>${m.totals.won}</b><span>Wins</span></div>

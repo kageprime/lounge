@@ -34,8 +34,23 @@ class BilliardsApp {
     // Contextual prompt bar idle fade
     this.lastActionTime = performance.now();
 
+    // Online Head-to-Head Multiplayer State (Phase 3)
+    this.online = null; // { sessionId, mySeat (1|2|0=spectator), players }
+    this.pendingOutcome = null;
+    this.lastAimSent = 0;
+
+    // Direct Challenge Opponent Names (?p1=You&p2=Obi)
+    const qs = new URLSearchParams(location.search);
+    this.customNames = qs.has('p2') ? [qs.get('p1') || 'You', qs.get('p2')] : null;
+    if (this.customNames) {
+      this.game.mode = '8ball_cpu';
+      const bMode = document.getElementById('bQuickMode');
+      if (bMode) bMode.style.display = 'none';
+    }
+
     this._setupDOM();
     this._setupInput();
+    this._setupMultiplayerBridge();
 
     // Start Animation Loop
     this.lastTime = performance.now();
@@ -68,7 +83,20 @@ class BilliardsApp {
     if (this.audio) this.audio.cushionBounce(30);
   }
 
+  cycleCamera() {
+    const modes = ['dynamic', 'close', 'overhead'];
+    const idx = modes.indexOf(this.renderer.camMode || 'dynamic');
+    const next = modes[(idx + 1) % modes.length];
+    this.renderer.camMode = next;
+    const names = { dynamic: 'DYNAMIC BROADCAST', close: 'ACTION CLOSE-UP', overhead: 'STATIC OVERHEAD' };
+    this.showToast(`CAMERA: ${names[next]}`);
+    this.audio.unlock();
+    const bCam = document.getElementById('bQuickCam');
+    if (bCam) bCam.textContent = `🎥 ${next.toUpperCase()}`;
+  }
+
   cycleMode() {
+    if (this.online || this.customNames) return;
     const modes = ['8ball_cpu', '8ball_2p', 'practice'];
     const idx = modes.indexOf(this.game.mode);
     const next = modes[(idx + 1) % modes.length];
@@ -86,11 +114,21 @@ class BilliardsApp {
     const bRack = $('bQuickRack');
     if (bRack) {
       bRack.onclick = () => {
+        if (this.online) return;
         this.audio.unlock();
         this.game.rackBalls();
         this.updateHUD();
         this.showToast('TABLE RE-RACKED');
       };
+      if (bRack.parentElement && !$('bQuickCam')) {
+        const bCam = document.createElement('button');
+        bCam.id = 'bQuickCam';
+        bCam.className = bRack.className || 'quickBtn';
+        bCam.textContent = '🎥 DYNAMIC';
+        bCam.title = 'Cycle Camera Angle (V)';
+        bCam.onclick = () => this.cycleCamera();
+        bRack.parentElement.insertBefore(bCam, bRack);
+      }
     }
 
     const bFelt = $('bQuickFelt');
@@ -191,6 +229,7 @@ class BilliardsApp {
     };
 
     const onPointerStart = (clientX, clientY) => {
+      if (this.online && this.game.turn !== this.online.mySeat) return;
       this.lastActionTime = performance.now();
       const promptBar = document.getElementById('gtaPromptBar');
       if (promptBar) promptBar.classList.remove('faded');
@@ -229,6 +268,7 @@ class BilliardsApp {
     };
 
     const onPointerMove = (clientX, clientY) => {
+      if (this.online && this.game.turn !== this.online.mySeat) return;
       this.lastActionTime = performance.now();
       const promptBar = document.getElementById('gtaPromptBar');
       if (promptBar) promptBar.classList.remove('faded');
@@ -258,16 +298,31 @@ class BilliardsApp {
       if (this.game.state === 'aiming' && this.game.cueBall && !this.game.cueBall.potted && !this.isChargingSpace) {
         const cue = this.game.cueBall;
         this.game.aimAngle = Math.atan2(pt.y - cue.y, pt.x - cue.x);
+        this._sendAimUpdate();
       }
     };
 
     const onPointerEnd = () => {
+      if (this.online && this.game.turn !== this.online.mySeat) {
+        this.isDraggingCueBall = false;
+        this.isPullingBack = false;
+        this.isPointerDown = false;
+        return;
+      }
       if (this.isDraggingCueBall) {
         this.isDraggingCueBall = false;
         if (this.game.isCueBallPlacementValid(this.game.cueBall.x, this.game.cueBall.y)) {
           this.game.state = 'aiming';
           this.showToast('CUE BALL PLACED • AIM & STRIKE');
           this.updateHUD();
+          if (this.online) {
+            this._postMpAction({
+              t: 'match.placeCue',
+              sessionId: this.online.sessionId,
+              x: this.game.cueBall.x,
+              y: this.game.cueBall.y
+            });
+          }
         }
       }
 
@@ -275,7 +330,7 @@ class BilliardsApp {
         this.isPullingBack = false;
         hidePowerMeterUI();
         if (this.game.power > 0.08) {
-          this.game.shoot();
+          this._executeShot();
         }
       }
 
@@ -330,6 +385,11 @@ class BilliardsApp {
         return;
       }
 
+      if (k === 'v') {
+        this.cycleCamera();
+        return;
+      }
+
       if (k === 'c') {
         // Reset spin
         this.game.spinX = 0;
@@ -350,6 +410,7 @@ class BilliardsApp {
 
       // HOLD SPACE TO CHARGE SHOT POWER
       if (e.code === 'Space' && !e.repeat && this.game.state === 'aiming' && !this.isChargingSpace) {
+        if (this.online && this.game.turn !== this.online.mySeat) return;
         e.preventDefault();
         this.isChargingSpace = true;
         this.game.power = 0.1;
@@ -371,7 +432,7 @@ class BilliardsApp {
         this.isChargingSpace = false;
         hidePowerMeterUI();
         if (this.game.power > 0.08) {
-          this.game.shoot();
+          this._executeShot();
         }
       }
     });
@@ -424,6 +485,12 @@ class BilliardsApp {
     // Step physics & game rules
     this.game.update(dt);
 
+    // If an authoritative server outcome is waiting and balls have stopped, snap to authoritative state
+    if (this.online && this.pendingOutcome && this.game.state !== 'rolling') {
+      this._applySnapshot(this.pendingOutcome);
+      this.pendingOutcome = null;
+    }
+
     // Render Canvas
     this.renderer.render(this.game);
 
@@ -450,16 +517,29 @@ class BilliardsApp {
       p2Row.classList.toggle('active', this.game.turn === 2);
     }
 
-    // Player 2 Name
+    // Player 1 & Player 2 Names
+    const p1Name = $('p1Name');
     const p2Name = $('p2Name');
-    if (p2Name) {
+    if (this.online && Array.isArray(this.online.players)) {
+      const p1 = this.online.players.find(p => p.seat === 1);
+      const p2 = this.online.players.find(p => p.seat === 2);
+      if (p1Name && p1) p1Name.textContent = p1.name.toUpperCase();
+      if (p2Name && p2) p2Name.textContent = p2.name.toUpperCase();
+    } else if (this.customNames) {
+      if (p1Name) p1Name.textContent = (this.customNames[0] || 'YOU').toUpperCase();
+      if (p2Name) p2Name.textContent = (this.customNames[1] || 'OPPONENT').toUpperCase();
+    } else if (p2Name) {
       p2Name.textContent = this.game.mode === '8ball_cpu' ? 'AI BOT' : this.game.mode === '8ball_2p' ? 'PLAYER 2' : 'PRACTICE';
     }
 
     // Mode Tag
     const modeBadge = $('matchModeBadge');
     if (modeBadge) {
-      modeBadge.textContent = this.game.mode === '8ball_cpu' ? 'VS CPU' : this.game.mode === '8ball_2p' ? '2-PLAYER' : 'SOLO';
+      modeBadge.textContent = this.online
+        ? (this.online.mySeat === 0 ? 'SPECTATING' : 'ONLINE 1V1')
+        : this.customNames
+          ? `VS ${this.customNames[1].toUpperCase()}`
+          : (this.game.mode === '8ball_cpu' ? 'VS CPU' : this.game.mode === '8ball_2p' ? '2-PLAYER' : 'SOLO');
     }
 
     // 2. Group Labels & Ball Pips
@@ -540,8 +620,8 @@ class BilliardsApp {
         if (title) title.textContent = this.game.winner === 1 ? 'VICTORY!' : 'GAME OVER';
         if (desc) desc.textContent = this.game.statusMessage;
 
-        // Post message to parent lounge
-        if (window.parent && window.parent !== window) {
+        // Post message to parent lounge (only for local games; online matches are settled by the server)
+        if (!this.online && window.parent && window.parent !== window) {
           // Standard lounge result contract: the game reports WHAT happened, the lounge/server decides rewards.
           // Only VS CPU is ranked; hot-seat 2-player and practice can't be farmed for rewards.
           window.parent.postMessage({
@@ -554,6 +634,114 @@ class BilliardsApp {
           }, '*');
         }
       }
+    }
+  }
+
+  _executeShot() {
+    if (this.online) {
+      if (this.game.turn !== this.online.mySeat) return;
+      this._postMpAction({
+        t: 'match.shoot',
+        sessionId: this.online.sessionId,
+        aimAngle: this.game.aimAngle,
+        power: this.game.power,
+        spinX: this.game.spinX,
+        spinY: this.game.spinY,
+        cueX: this.game.cueBall?.x,
+        cueY: this.game.cueBall?.y
+      });
+      return;
+    }
+    this.game.shoot();
+  }
+
+  _postMpAction(cmd) {
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: 'mp_action', cmd }, '*');
+    }
+  }
+
+  _sendAimUpdate() {
+    if (!this.online || this.game.turn !== this.online.mySeat) return;
+    const now = performance.now();
+    if (now - this.lastAimSent < 65) return;
+    this.lastAimSent = now;
+    this._postMpAction({
+      t: 'match.aim',
+      sessionId: this.online.sessionId,
+      aimAngle: this.game.aimAngle,
+      power: this.game.power,
+      spinX: this.game.spinX,
+      spinY: this.game.spinY
+    });
+  }
+
+  _applySnapshot(snap) {
+    if (!snap) return;
+    this.game.state = snap.state;
+    this.game.turn = snap.turn;
+    if (snap.groups) this.game.groups = { ...snap.groups };
+    this.game.winner = snap.winner;
+    if (snap.statusMessage) this.game.statusMessage = snap.statusMessage;
+    if (Array.isArray(snap.balls)) {
+      for (const sb of snap.balls) {
+        const b = this.game.balls.find(x => x.num === sb.num);
+        if (b) {
+          b.x = sb.x;
+          b.y = sb.y;
+          b.potted = !!sb.potted;
+          b.inPocketAnim = false;
+          b.scale = b.potted ? 0 : 1;
+          b.opacity = b.potted ? 0 : 1;
+          b.stop();
+        }
+      }
+    }
+    this.updateHUD();
+  }
+
+  _setupMultiplayerBridge() {
+    window.addEventListener('message', ev => {
+      const d = ev.data;
+      if (!d || typeof d !== 'object') return;
+      if (d.type === 'mp_init' && d.session) {
+        this.online = {
+          sessionId: d.session.id,
+          mySeat: d.mySeat,
+          players: d.session.players || []
+        };
+        this.game.mode = '8ball_2p';
+        this.game.rackBalls();
+        if (d.session.snapshot) this._applySnapshot(d.session.snapshot);
+        const myTurn = this.game.turn === this.online.mySeat;
+        this.showToast(this.online.mySeat === 0 ? 'SPECTATING LIVE MATCH' : (myTurn ? 'YOUR BREAK SHOT!' : 'OPPONENT BREAKING...'));
+        this.updateHUD();
+      } else if (d.type === 'mp_event' && d.event && this.online && d.event.sessionId === this.online.sessionId) {
+        const e = d.event;
+        if (e.type === 'match.aim' && e.seat !== this.online.mySeat) {
+          this.game.aimAngle = e.aimAngle;
+          this.game.power = e.power;
+          this.game.spinX = e.spinX;
+          this.game.spinY = e.spinY;
+        } else if (e.type === 'match.cuePlaced') {
+          this._applySnapshot(e.snapshot);
+        } else if (e.type === 'match.shot') {
+          if (this.game.cueBall && e.shot.cueX != null && e.shot.cueY != null) {
+            this.game.cueBall.x = e.shot.cueX;
+            this.game.cueBall.y = e.shot.cueY;
+          }
+          this.game.state = 'aiming';
+          this.game.aimAngle = e.shot.aimAngle;
+          this.game.power = e.shot.power;
+          this.game.spinX = e.shot.spinX;
+          this.game.spinY = e.shot.spinY;
+          this.pendingOutcome = e.outcome;
+          this.game.shoot();
+        }
+      }
+    });
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: 'mp_ready', game: 'pool' }, '*');
     }
   }
 }

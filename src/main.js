@@ -5,7 +5,7 @@ import { LOUNGE, LOFT } from './layout.js';
 import { spawnBots, spawnCitizenBots } from './bots.js';
 import { Stage } from './stage.js';
 import { Sound, TRACKS } from './audio.js';
-import { OPTIONS, EMOTES, randomLoadout, sanitize } from './avatar-data.js';
+import { OPTIONS, EMOTES, randomLoadout, sanitize, mulberry32 } from './avatar-data.js';
 import { status as assets } from './assets.js';
 import { ClawGame, PRIZES } from './claw.js';
 import { NetClient } from './net.js';
@@ -14,6 +14,11 @@ import { LifeSim, GIGS } from './lifesim.js';
 import { generateCitizens, getRelationshipTier, getDialogue } from './proc-npcs.js';
 import { YouTubeRadio, MIAMI_PLAYLIST } from './yt-radio.js';
 import { MoonBaseStage } from './moonbase.js';
+import { normalizeProfile, refreshQuests, applyResult, claimQuest, trackEvent, questDef, REWARDS, GAME_INFO, dayKey } from './progression.js';
+import { cardModel, npcProfile, cardHTML, tiltCard, levelChipHTML, showVersus, showResult } from './arcade-ui.js';
+import { mountAvatarStage } from './portrait.js';
+import { PRIZE_SHOP_CATALOG } from './catalog.js';
+import { icon } from './icons.js';
 
 const GAMES = {
   ludo: { title: 'Ludo · Club No.9 Edition', url: 'games/ludo/index.html' },
@@ -78,10 +83,28 @@ const prof = load();
 prof.coins = prof.coins ?? 100;
 prof.tickets = prof.tickets ?? 0;
 prof.inventory = prof.inventory ?? [];
+let prog = refreshQuests(normalizeProfile(prof.progression));
+const AUTH_TOKEN_KEY = 'lounge.auth.token.v1';
+let authToken = (() => { try { return localStorage.getItem(AUTH_TOKEN_KEY); } catch (_) { return null; } })();
+let serverAuthed = false;
+let myUserId = null;
+let activeOnlineSession = null;
+let activeQueueGame = null;
+let cachedLiveMatches = [];
+
 function updateWalletUI() {
   const cEl = $('coinVal'), tEl = $('ticketVal');
   if (cEl) cEl.textContent = prof.coins;
   if (tEl) tEl.textContent = prof.tickets;
+  const lvEl = $('hudLevelChip');
+  if (lvEl) lvEl.innerHTML = levelChipHTML(prog);
+  const qDot = $('questBadgeDot');
+  if (qDot) {
+    const claimable = (prog.quests?.list || []).some(q => q.done && !q.claimed);
+    qDot.classList.toggle('hidden', !claimable);
+  }
+  const authEl = $('arcadeAuthBadge');
+  if (authEl) authEl.textContent = serverAuthed ? 'VERIFIED LEDGER' : 'OFFLINE / LOCAL';
 }
 updateWalletUI();
 
@@ -177,15 +200,129 @@ radio.on('volume', ({ volume }) => {
   if (slider && +slider.value !== volume) slider.value = volume;
 });
 const net = new NetClient({
-  onStatus: ({ online, reason }) => {
+  onStatus: async ({ online, reason }) => {
     if (online) {
       toast('✦ Multiplayer Connected');
       net.send({ t: 'join', person: { id: 'me', human: true, name: me.name, loadout: me.loadout } });
+      try {
+        const res = await net.request({ t: 'auth', token: authToken, name: me.name });
+        if (res && res.ok) {
+          serverAuthed = true;
+          myUserId = res.user?.id || myUserId;
+          if (res.token) {
+            authToken = res.token;
+            try { localStorage.setItem(AUTH_TOKEN_KEY, authToken); } catch (_) {}
+          }
+          if (res.wallet) {
+            prof.coins = res.wallet.COIN ?? prof.coins;
+            prof.tickets = res.wallet.TICKET ?? prof.tickets;
+          }
+          if (res.profile) {
+            prog = refreshQuests(normalizeProfile(res.profile));
+            if (Array.isArray(res.profile.inventory)) prof.inventory = res.profile.inventory;
+          }
+          persist();
+          updateWalletUI();
+        }
+      } catch (_) {
+        serverAuthed = false;
+        updateWalletUI();
+      }
     } else if (reason) {
+      serverAuthed = false;
+      activeQueueGame = null;
+      updateWalletUI();
       toast('Offline mode · Playing with bots');
     }
   },
   onEvent: msg => {
+    if (msg.type === 'wallet' && msg.wallet) {
+      prof.coins = msg.wallet.COIN ?? prof.coins;
+      prof.tickets = msg.wallet.TICKET ?? prof.tickets;
+      persist();
+      updateWalletUI();
+      return;
+    }
+    if (msg.type === 'profile' && msg.profile) {
+      prog = refreshQuests(normalizeProfile(msg.profile));
+      if (Array.isArray(msg.profile.inventory)) prof.inventory = msg.profile.inventory;
+      persist();
+      updateWalletUI();
+      return;
+    }
+    if (msg.type === 'challenge.invite') {
+      const ban = $('challengeBanner');
+      if (ban) {
+        sound.win();
+        ban.classList.remove('hidden');
+        ban.innerHTML = `
+          <span>${icon('swords', 15)} <b>${msg.fromName || 'Rival'}</b> challenged you to <b>${GAME_INFO[msg.game]?.name || msg.game}</b>!</span>
+          <div style="display:flex;gap:6px;">
+            <button id="bAcceptChal" class="gold">Accept</button>
+            <button id="bDeclineChal">Decline</button>
+          </div>
+        `;
+        $('bAcceptChal').onclick = () => {
+          ban.classList.add('hidden');
+          net.request({ t: 'match.accept', challengeId: msg.challengeId }).catch(() => {});
+        };
+        $('bDeclineChal').onclick = () => {
+          ban.classList.add('hidden');
+          net.request({ t: 'match.decline', challengeId: msg.challengeId }).catch(() => {});
+        };
+      }
+      return;
+    }
+    if (msg.type === 'challenge.declined') {
+      sound.deny();
+      toast('Challenge declined by rival');
+      return;
+    }
+    if (msg.type === 'match.start' && msg.session) {
+      activeQueueGame = null;
+      activeOnlineSession = { session: msg.session, mySeat: msg.mySeat };
+      openOnlineGame(msg.session, msg.mySeat);
+      return;
+    }
+    if (msg.type === 'match.aim' || msg.type === 'match.cuePlaced' || msg.type === 'match.shot' || msg.type === 'match.rolled' || msg.type === 'match.moved') {
+      if (activeOnlineSession && msg.snapshot) {
+        activeOnlineSession.session.snapshot = msg.snapshot;
+      }
+      const fw = $('gameFrame')?.contentWindow;
+      if (fw) fw.postMessage({ type: 'mp_event', event: msg }, '*');
+      return;
+    }
+    if (msg.type === 'match.over') {
+      const fw = $('gameFrame')?.contentWindow;
+      if (fw) fw.postMessage({ type: 'mp_event', event: msg }, '*');
+      const myCeremony = (myUserId && msg.ceremonies?.[myUserId]) || null;
+      if (msg.contestSettlement && msg.winnerSeat === activeOnlineSession?.mySeat) {
+        const netPot = (msg.contestSettlement.pot || 0) - (msg.contestSettlement.rake || 0);
+        toast(`🏆 Won ${netPot}🪙 Escrow Showdown Pot!`);
+      }
+      if (myCeremony) {
+        if (myCeremony.won) {
+          cmd({ t: 'say', text: `Just won a live 1v1 match in ${GAME_INFO[myCeremony.game]?.name || myCeremony.game}! 🏆` });
+        }
+        const resHost = $('resultOverlay');
+        if (resHost) {
+          showResult(resHost, myCeremony, {
+            sound,
+            questName: id => questDef(id)?.text || id,
+            onClose: () => closeGame(),
+            onRematch: () => {
+              const g = myCeremony.game || 'pool';
+              closeGame();
+              openArcadeOS('play');
+              net.request({ t: 'match.queue', game: g }).then(r => {
+                if (r && r.queued) { activeQueueGame = g; renderArcadeOS(); toast(`Queued for live 1v1 ${GAME_INFO[g]?.name || g}...`); }
+              }).catch(() => {});
+            }
+          });
+        }
+      }
+      return;
+    }
     if (msg.type === 'event' && msg.event) {
       const ev = msg.event;
       if (ev.id !== 'me') {
@@ -241,15 +378,118 @@ const verb = (r, u) =>
   u.action === 'terminal' ? (r.type === 'portal' ? 'Warp to Skyline Loft' : 'Access Subspace Terminal') :
   u.action === 'play' ? (r.type === 'claw' ? 'Play Claw Machine (10🪙)' : r.type === 'gacha' ? 'Turn Gacha (5🪙)' : (() => { const gid = r.game || (r.type === 'pool' ? 'pool' : r.type === 'ludotable' ? 'ludo' : null); return (gid && GAMES[gid]) ? 'Play ' + GAMES[gid].title.split(' ·')[0] : r.T.label + ' · coming soon'; })()) : 'Hang out';
 
-// ---------- game portal ----------
+// ---------- game portal + VS walk-out splash ----------
 let gameOpen = false;
 let gameTimer = 0;
-function openGame(id, prop) {
-  const g = GAMES[id]; if (!g) return; const r = prop && world.props.get(prop); if (r) stage.focus(r.cx, r.cy, 5.5);
-  clearTimeout(gameTimer); gameOpen = true; gameTimer = setTimeout(() => {          // let the camera dolly in first
-    if (!gameOpen) return; $('gameTitle').textContent = g.title; $('gameFrame').src = g.url; const el = $('game'); el.classList.remove('hidden'); void el.offsetWidth; el.classList.add('in'); }, r && !q.has('fast') ? 750 : 0);
+let activeGameId = null;
+let activeGameProp = null;
+let activeMatchId = null;
+
+function openOnlineGame(session, mySeat) {
+  const id = session.game;
+  const g = GAMES[id];
+  if (!g) return;
+  closeArcadeOS();
+  closePlayerCard();
+  $('challengeBanner')?.classList.add('hidden');
+  activeGameId = id;
+  activeGameProp = id === 'pool' ? 'pool0' : 'ludo0';
+  activeMatchId = null;
+  const r = world.props.get(activeGameProp);
+  if (r) stage.focus(r.cx, r.cy, 4.4, { yawOffset: 0.22, pitch: 0.34, dist: 3.1 });
+  clearTimeout(gameTimer);
+  gameOpen = true;
+
+  const vsHost = $('vsOverlay');
+  if (vsHost && !q.has('fast')) {
+    const p0 = session.players?.[0] || { name: 'Player 1', clientId: 'p0' };
+    const p1 = session.players?.[1] || { name: 'Player 2', clientId: 'p1' };
+    const w0 = p0.clientId === net.clientId ? me : world.people.get(p0.clientId);
+    const w1 = p1.clientId === net.clientId ? me : world.people.get(p1.clientId);
+    const lo0 = w0?.loadout || randomLoadout(mulberry32(101));
+    const lo1 = w1?.loadout || randomLoadout(mulberry32(202));
+    const leftCard = cardModel({ name: p0.name, loadout: lo0, profile: w0 === me ? prog : npcProfile(p0.clientId || 'p0'), tag: mySeat === 0 ? 'YOU · P1' : 'PLAYER 1' });
+    const rightCard = cardModel({ name: p1.name, loadout: lo1, profile: w1 === me ? prog : npcProfile(p1.clientId || 'p1'), tag: mySeat === 1 ? 'YOU · P2' : 'PLAYER 2' });
+    const subtitle = session.contestId
+      ? 'Escrow Showdown · Winner Takes Pot'
+      : (mySeat === 'spectator' ? 'Spectating Live 1v1 Match' : 'Live 1v1 Head-to-Head Match');
+    showVersus(vsHost, { left: leftCard, right: rightCard, gameName: g.title.split(' ·')[0], game: id, subtitle, duration: 1550, sound });
+  }
+
+  gameTimer = setTimeout(() => {
+    if (!gameOpen) return;
+    $('gameTitle').textContent = `${g.title.split(' ·')[0]} · LIVE 1v1 (${session.players?.[0]?.name || 'P1'} vs ${session.players?.[1]?.name || 'P2'})`;
+    $('gameFrame').src = g.url + (g.url.includes('?') ? '&' : '?') + 'mp=1';
+    const el = $('game');
+    el.classList.remove('hidden');
+    void el.offsetWidth;
+    el.classList.add('in');
+  }, r && !q.has('fast') ? 550 : 0);
+}
+
+let activeOpponent = null;
+function openGame(id, prop, { opponent = null, showVersusSplash = false } = {}) {
+  const g = GAMES[id]; if (!g) return;
+  activeOnlineSession = null;
+  activeGameId = id;
+  activeGameProp = prop || null;
+  activeOpponent = opponent || null;
+  activeMatchId = null;
+  if (serverAuthed && net.connected) {
+    net.request({ t: 'gameStart', game: id }).then(res => {
+      if (res && res.ok) activeMatchId = res.matchId;
+    }).catch(() => {});
+  }
+  const r = prop && world.props.get(prop);
+  if (r) {
+    stage.focus(r.cx, r.cy, opponent ? 4.3 : 4.6, { yawOffset: opponent ? 0.24 : 0.16, pitch: 0.34, dist: 3.1 });
+    // If challenging an NPC/bot in the lounge, move both players to the table seats
+    if (opponent) {
+      const free = world.freeUses(u => u.prop === prop);
+      if (free[0]) cmd({ t: 'use', use: free[0].id });
+      if (free[1] && opponent.id && opponent.id !== 'me' && world.people.has(opponent.id)) {
+        world.command({ t: 'use', id: opponent.id, use: free[1].id });
+      }
+    }
+  }
+  clearTimeout(gameTimer);
+  gameOpen = true;
+
+  // Only show VS Walk-out Splash when matched against a chosen opponent (or explicitly requested)
+  // Walking up to a table opens the table/menu directly without a redundant VS screen first.
+  const vsHost = $('vsOverlay');
+  if (vsHost && !q.has('fast') && (opponent || showVersusSplash)) {
+    const myCard = cardModel({ name: me.name, loadout: me.loadout, profile: prog, tag: 'CHALLENGER' });
+    const oppLo = opponent?.loadout || randomLoadout(mulberry32(id === 'pool' ? 88 : 42));
+    const oppName = opponent?.name || (id === 'pool' ? 'Cue Shark Mira' : id === 'ludo' ? 'Club Champion' : 'SUBSPACE-89');
+    const oppProf = opponent?.id ? npcProfile(opponent.id) : npcProfile('house_' + id);
+    const oppCard = cardModel({ name: oppName, loadout: oppLo, profile: oppProf, tag: opponent ? 'RIVAL' : 'HOUSE PRO' });
+    showVersus(vsHost, { left: myCard, right: oppCard, gameName: g.title.split(' ·')[0], game: id, subtitle: `${me.name} vs ${oppName} · Winner Takes Trophy XP`, duration: 1550, sound });
+  }
+
+  let targetUrl = g.url;
+  if (opponent) {
+    const sep = targetUrl.includes('?') ? '&' : '?';
+    targetUrl = `${targetUrl}${sep}autostart=1&p1=${encodeURIComponent(me.name)}&p2=${encodeURIComponent(opponent.name)}`;
+  }
+
+  gameTimer = setTimeout(() => {          // let the camera dolly in first
+    if (!gameOpen) return;
+    $('gameTitle').textContent = opponent
+      ? `${g.title.split(' ·')[0]} · ${me.name} vs ${opponent.name}`
+      : g.title;
+    $('gameFrame').src = targetUrl;
+    const el = $('game');
+    el.classList.remove('hidden');
+    void el.offsetWidth;
+    el.classList.add('in');
+  }, r && !q.has('fast') ? (opponent ? 650 : 380) : 0);
 }
 function closeGame() {
+  if (activeOnlineSession && net.connected) {
+    net.send({ t: 'match.leave', sessionId: activeOnlineSession.session.id });
+    activeOnlineSession = null;
+  }
   if (!gameOpen) return; gameOpen = false; clearTimeout(gameTimer); const el = $('game'); el.classList.remove('in'); stage.unfocus();
   setTimeout(() => { if (!gameOpen) { $('gameFrame').src = 'about:blank'; el.classList.add('hidden'); } }, 320); cmd({ t: 'stand' });
 }
@@ -267,6 +507,9 @@ function openClawMachine(propId) {
     return;
   }
   prof.coins -= 10;
+  if (serverAuthed && net.connected) {
+    net.request({ t: 'spend', what: 'claw' }).catch(() => {});
+  }
   persist();
   updateWalletUI();
   sound.coin();
@@ -302,6 +545,9 @@ function closeClawMachine() {
 function showPrizeModal(prize) {
   if (prize.type === 'tickets') {
     prof.tickets += prize.amount;
+    if (serverAuthed && net.connected) {
+      net.request({ t: 'clawPrize', tickets: prize.amount }).catch(() => {});
+    }
     toast(`+${prize.amount} Tickets!`);
   } else if (prize.type === 'cosmetic') {
     prof.inventory.push(prize.name);
@@ -321,6 +567,9 @@ function showPrizeModal(prize) {
     prof.inventory.push(prize.name);
     toast('Uncovered a strange relic! Check the room for anomalies...');
   }
+  // Track claw machine play in progression quests
+  const clawRes = applyResult(prog, { game: 'claw', won: true });
+  if (clawRes) prog = clawRes.profile;
   persist();
   updateWalletUI();
 
@@ -384,18 +633,18 @@ function updateClawKeyAim() {
 
 // ---------- prize counter shop ----------
 const PRIZE_SHOP = [
-  { id: 'coins30', name: '30 Arcade Tokens', cost: 25, icon: '🪙', desc: 'Convert tickets into playable game tokens', buy: () => { prof.coins += 30; } },
-  { id: 'halo', name: 'Golden Neon Halo', cost: 100, icon: '👑', desc: 'Radiant glowing halo for your avatar', buy: () => {
+  { id: 'coins30', name: '30 Arcade Tokens', cost: 25, icon: icon('coin', 22), desc: 'Convert tickets into playable game tokens', buy: () => { prof.coins += 30; } },
+  { id: 'halo', name: 'Golden Neon Halo', cost: 100, icon: icon('crown', 22), desc: 'Radiant glowing halo for your avatar', buy: () => {
     prof.inventory.push('Golden Neon Halo');
     const l = { ...me.loadout, accessory: 'halo' };
     cmd({ t: 'loadout', loadout: l });
   }},
-  { id: 'neon_sign', name: 'CYBER Neon Sign', cost: 150, icon: '⚡', desc: 'Exclusive neon sign prop for Decorator Mode', buy: () => {
+  { id: 'neon_sign', name: 'CYBER Neon Sign', cost: 150, icon: icon('bolt', 22), desc: 'Exclusive neon sign prop for Decorator Mode', buy: () => {
     prof.inventory.push('CYBER Neon Sign');
     CATALOG.push({ cat: 'decor', type: 'neon', side: 'n', text: 'CYBER', color: '#54e0ee', label: 'CYBER Sign' });
     renderCatalog();
   }},
-  { id: 'tape0', name: 'Cassette: Track 00', cost: 200, icon: '📼', desc: 'Cryptic tape fragment found behind a cabinet', buy: () => {
+  { id: 'tape0', name: 'Cassette: Track 00', cost: 200, icon: icon('radio', 22), desc: 'Cryptic tape fragment found behind a cabinet', buy: () => {
     prof.inventory.push('Cassette: Track 00');
     toast('The cassette hums faintly in your hands... [Mystery Relic]');
   }}
@@ -420,7 +669,7 @@ function renderPrizeShop() {
           </div>
         </div>
         <button class="shopRowBtn ${canAfford && !owned ? 'gold' : ''}" data-idx="${idx}" ${!canAfford || owned ? 'disabled' : ''}>
-          ${owned ? 'Claimed' : `🎟️ ${it.cost}`}
+          ${owned ? 'Claimed' : `${icon('ticket', 14)} ${it.cost}`}
         </button>
       </div>
     `;
@@ -438,12 +687,23 @@ function closePrizeShop() {
 }
 if ($('shopClose')) $('shopClose').onclick = closePrizeShop;
 if ($('shopItems')) {
-  $('shopItems').onclick = e => {
+  $('shopItems').onclick = async e => {
     const btn = e.target.closest('button');
     if (!btn || btn.disabled) return;
     const item = PRIZE_SHOP[+btn.dataset.idx];
     if (!item || prof.tickets < item.cost) return;
-    prof.tickets -= item.cost;
+    if (serverAuthed && net.connected) {
+      try {
+        const res = await net.request({ t: 'buy', item: item.id });
+        if (!res || !res.ok) {
+          sound.deny();
+          toast('Purchase refused by ledger');
+          return;
+        }
+      } catch (_) {}
+    } else {
+      prof.tickets -= item.cost;
+    }
     item.buy();
     sound.win();
     toast(`Redeemed ${item.name}!`);
@@ -455,8 +715,19 @@ if ($('shopItems')) {
 
 const bc = $('badgeCoins'), bt = $('badgeTickets');
 if (bc) {
-  bc.onclick = () => {
+  bc.onclick = async () => {
     if (prof.coins < 10) {
+      if (serverAuthed && net.connected) {
+        try {
+          const res = await net.request({ t: 'dailyTokens' });
+          if (res && res.ok) {
+            sound.coin();
+            toast('+50 Free Daily Tokens credited by ledger!');
+            if (shopOpen) renderPrizeShop();
+            return;
+          }
+        } catch (_) {}
+      }
       prof.coins += 50;
       sound.coin();
       toast('+50 Free Daily Tokens! Enjoy the games!');
@@ -470,16 +741,598 @@ if (bc) {
 }
 if (bt) bt.onclick = openPrizeShop;
 
+// ---------- Authoritative Match Result & Ceremony Handler ----------
+async function handleMatchResult({ game, won, ranked = true }) {
+  const resHost = $('resultOverlay');
+  if (!ranked) {
+    const lv = applyResult(prog, { game, won }) || { levelBefore: { level: 1, progress: 0 }, levelAfter: { level: 1, progress: 0 } };
+    if (resHost) {
+      showResult(resHost, { game, won, streak: 0, ratingDelta: 0, reward: { coins: 0, tickets: 0, xp: 0 }, levelBefore: lv.levelBefore, levelAfter: lv.levelAfter, leveledUp: false }, {
+        unranked: true,
+        sound,
+        onClose: () => closeGame(),
+        onRematch: () => { const g = activeGameId || game, p = activeGameProp; closeGame(); setTimeout(() => openGame(g, p), 360); }
+      });
+    }
+    return;
+  }
+
+  let ceremony = null;
+  if (serverAuthed && net.connected && activeMatchId) {
+    try {
+      const srv = await net.request({ t: 'result', matchId: activeMatchId, won });
+      if (srv && srv.ok && srv.ceremony) {
+        ceremony = srv.ceremony;
+        if (srv.wallet) { prof.coins = srv.wallet.COIN; prof.tickets = srv.wallet.TICKET; }
+        if (srv.profile) prog = refreshQuests(normalizeProfile(srv.profile));
+      }
+    } catch (_) {}
+  }
+
+  if (!ceremony) {
+    const local = applyResult(prog, { game, won });
+    if (!local) return;
+    prog = local.profile;
+    prof.coins += local.reward.coins;
+    prof.tickets += local.reward.tickets;
+    ceremony = local;
+  }
+
+  if (won && ceremony.streak >= 2 && (prog.trophies || []).length === 0) {
+    prog.trophies = [{ id: 'streak_' + game, name: `${GAME_INFO[game]?.short || game} Hot Streak`, tier: 'gold', at: Date.now() }];
+  }
+  persist();
+  updateWalletUI();
+
+  if (won) {
+    cmd({ t: 'say', text: `Just won at ${GAME_INFO[game]?.name || game}! 🏆` });
+  }
+
+  if (resHost) {
+    showResult(resHost, ceremony, {
+      sound,
+      questName: id => questDef(id)?.text || id,
+      onClose: () => closeGame(),
+      onRematch: () => { const g = activeGameId || game, p = activeGameProp; closeGame(); setTimeout(() => openGame(g, p), 360); }
+    });
+  }
+}
+
 // Standalone game postMessage listener (Rule 7)
 window.addEventListener('message', ev => {
-  if (ev.data && ev.data.type === 'gameReward') {
+  if (!ev.data || typeof ev.data !== 'object') return;
+  if (ev.data.type === 'mp_ready' && activeOnlineSession) {
+    const fw = $('gameFrame')?.contentWindow;
+    if (fw) {
+      fw.postMessage({
+        type: 'mp_init',
+        session: activeOnlineSession.session,
+        mySeat: activeOnlineSession.mySeat
+      }, '*');
+    }
+    return;
+  }
+  if (ev.data.type === 'mp_action' && ev.data.cmd && net.connected) {
+    net.send(ev.data.cmd);
+    return;
+  }
+  if (ev.data.type === 'game_result') {
+    handleMatchResult({
+      game: ev.data.game || activeGameId || 'pool',
+      won: !!ev.data.won,
+      ranked: ev.data.ranked !== false
+    });
+  } else if (ev.data.type === 'pool_game_result') {
+    handleMatchResult({ game: 'pool', won: !!ev.data.won, ranked: true });
+  } else if (ev.data.type === 'gameReward') {
     const t = ev.data.tickets || 0, c = ev.data.coins || 0;
     if (t > 0) { prof.tickets += t; toast(`+${t} Tickets won!`); }
     if (c > 0) { prof.coins += c; toast(`+${c} Coins earned!`); }
     sound.win();
     persist();
     updateWalletUI();
+  } else if (ev.data.type === 'triggerTwilight') {
+    cmd({ t: 'setPhase', phase: 'twilight' });
   }
+});
+
+// ---------- 3D Holographic Player Card + Full-Body Character Showcase Modal ----------
+let cardOpen = false;
+let disposeCardTilt = null;
+let cardStageCtrl = null;
+let cardBubbleTimer = 0;
+
+function showCardBubble(text) {
+  const b = $('cardAvatarBubble');
+  if (!b) return;
+  b.textContent = text;
+  b.classList.remove('hidden');
+  clearTimeout(cardBubbleTimer);
+  cardBubbleTimer = setTimeout(() => b.classList.add('hidden'), 2600);
+}
+
+function openPlayerCard(personId = 'me') {
+  const p = world.people.get(personId) || me;
+  const isMe = p.id === 'me';
+  const profileData = isMe ? prog : npcProfile(p.id);
+  const tag = isMe ? 'CHALLENGER' : (p.id.startsWith('peer_') ? 'ONLINE RIVAL' : 'LOUNGE REGULAR');
+  const model = cardModel({ name: p.name, loadout: p.loadout, profile: profileData, tag, crew: isMe ? 'NEON' : null });
+
+  const modal = $('cardModal');
+  const host = $('cardModalHost');
+  const acts = $('cardModalActions');
+  const emoteBar = $('cardEmoteBar');
+  const stageCv = $('cardAvatarCanvas');
+  const avatarStageEl = $('cardAvatarStage');
+  if (!host || !acts || !modal) return;
+
+  if (disposeCardTilt) { disposeCardTilt(); disposeCardTilt = null; }
+  if (cardStageCtrl) { cardStageCtrl.dispose(); cardStageCtrl = null; }
+  $('cardAvatarBubble')?.classList.add('hidden');
+
+  const hasLiveWorldAvatar = stage.avatars.has(p.id);
+  modal.classList.toggle('inWorldInspect', hasLiveWorldAvatar);
+
+  // Use hero dossier mode (no redundant portrait box) when the real 3D character is framed live in the lounge
+  host.innerHTML = cardHTML(model, { hero: hasLiveWorldAvatar });
+  disposeCardTilt = tiltCard(host);
+
+  if (!hasLiveWorldAvatar && stageCv) {
+    stageCv.classList.remove('hidden');
+    cardStageCtrl = mountAvatarStage(stageCv, p.loadout || me.loadout);
+  } else if (stageCv) {
+    stageCv.classList.add('hidden');
+  }
+  stage.focusPerson(p.id);
+
+  // Allow dragging on the left hero viewport frame to orbit the live 3D lounge camera around the character
+  if (avatarStageEl && !avatarStageEl.dataset.orbitBound) {
+    avatarStageEl.dataset.orbitBound = '1';
+    let heroDrag = null;
+    avatarStageEl.addEventListener('pointerdown', ev => {
+      if (ev.target.closest('button')) return;
+      heroDrag = { x: ev.clientX, y: ev.clientY };
+      try { avatarStageEl.setPointerCapture(ev.pointerId); } catch (_) {}
+    });
+    avatarStageEl.addEventListener('pointermove', ev => {
+      if (!heroDrag) return;
+      const dx = ev.clientX - heroDrag.x, dy = ev.clientY - heroDrag.y;
+      heroDrag = { x: ev.clientX, y: ev.clientY };
+      stage.orbit(dx * 0.008, dy * 0.004);
+    });
+    const endHeroDrag = () => { heroDrag = null; };
+    avatarStageEl.addEventListener('pointerup', endHeroDrag);
+    avatarStageEl.addEventListener('pointercancel', endHeroDrag);
+  }
+
+  if (emoteBar) {
+    emoteBar.innerHTML = isMe
+      ? `<button data-card-emote="wave">${icon('wave', 15)}<span>Wave</span></button>
+         <button data-card-emote="dance">${icon('dance', 15)}<span>Dance</span></button>
+         <button data-card-emote="cheer">${icon('hype', 15)}<span>Hype</span></button>
+         <button data-card-emote="think">${icon('think', 15)}<span>Think</span></button>`
+      : `<button data-card-emote="wave">${icon('wave', 15)}<span>Wave</span></button>
+         <button data-card-emote="dance">${icon('dance', 15)}<span>Dance Off</span></button>
+         <button data-card-emote="cheer">${icon('hype', 15)}<span>Hype</span></button>
+         <button data-card-chat="Yo ${p.name}! Ready for a match?">${icon('chat', 15)}<span>Say Yo</span></button>
+         <button data-card-gift="1">${icon('gift', 15)}<span>Gift 10</span></button>`;
+
+    emoteBar.onclick = async e => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      const em = btn.dataset.cardEmote;
+      const chat = btn.dataset.cardChat;
+      const gift = btn.dataset.cardGift;
+
+      if (em) {
+        sound.pop();
+        cardStageCtrl?.triggerEmote(em);
+        cmd({ t: 'emote', name: em });
+        if (!isMe && world.people.has(p.id)) {
+          world.command({ t: 'emote', id: p.id, name: em });
+        }
+        const labels = { wave: `Waved at ${p.name}!`, dance: `Dance-off with ${p.name}!`, cheer: `Hyped up ${p.name}!`, think: 'Thinking...' };
+        showCardBubble(isMe ? `${em.toUpperCase()}!` : labels[em] || 'EMOTE');
+        prog = trackEvent(prog, { type: 'emote' }).profile;
+        if (serverAuthed && net.connected) net.request({ t: 'trackEvent', eventType: 'emote' }).catch(() => {});
+        persist();
+        updateWalletUI();
+      } else if (chat) {
+        sound.pop();
+        cmd({ t: 'say', text: chat });
+        const reply = `Let's run it! Meet me at the table.`;
+        cardStageCtrl?.triggerSay(reply);
+        cardStageCtrl?.triggerEmote('cheer');
+        if (!isMe && world.people.has(p.id) && !p.id.startsWith('peer_')) {
+          world.command({ t: 'say', id: p.id, text: reply });
+          world.command({ t: 'emote', id: p.id, name: 'cheer' });
+        }
+        showCardBubble(`"${reply}"`);
+        prog = trackEvent(prog, { type: 'chat' }).profile;
+        if (serverAuthed && net.connected) net.request({ t: 'trackEvent', eventType: 'chat' }).catch(() => {});
+        persist();
+        updateWalletUI();
+      } else if (gift) {
+        if (prof.coins < 10) {
+          sound.deny();
+          toast('Need 10 Coins to send a gift!');
+          return;
+        }
+        prof.coins -= 10;
+        if (serverAuthed && net.connected) net.request({ t: 'spend', what: 'gift' }).catch(() => {});
+        sound.win();
+        cardStageCtrl?.triggerEmote('cheer');
+        cardStageCtrl?.triggerSay('Thanks for the 10 Coins!');
+        if (world.people.has(p.id)) {
+          world.command({ t: 'emote', id: p.id, name: 'cheer' });
+          world.command({ t: 'say', id: p.id, text: 'Thanks for the 10 Coins!' });
+        }
+        showCardBubble(`${p.name}: "Thanks for the 10 Coins!"`);
+        toast(`Sent a 10 Coin gift to ${p.name}!`);
+        persist();
+        updateWalletUI();
+      }
+    };
+  }
+
+  acts.innerHTML = isMe
+    ? `<button id="bCardCustomize">${icon('shirt', 16)}<span>Style Avatar</span></button>
+       <button id="bCardQuests" class="gold">${icon('crosshair', 16)}<span>Bounties &amp; Pots</span></button>
+       <button id="bCardClose">${icon('close', 15)}<span>Close</span></button>`
+    : `<button id="bCardChallengePool" class="gold">${icon('eightBall', 16)}<span>Pool vs ${p.name}</span></button>
+       <button id="bCardChallengeLudo">${icon('dice', 16)}<span>Ludo vs ${p.name}</span></button>
+       <button id="bCardClose">${icon('close', 15)}<span>Close</span></button>`;
+
+  modal.classList.remove('hidden');
+  cardOpen = true;
+  sound.pop();
+
+  if ($('bCardClose')) $('bCardClose').onclick = () => closePlayerCard();
+  if ($('bCardCustomize')) $('bCardCustomize').onclick = () => { closePlayerCard(); openDress(); };
+  if ($('bCardQuests')) $('bCardQuests').onclick = () => { closePlayerCard(); openArcadeOS('quests'); };
+  if ($('bCardChallengePool')) {
+    $('bCardChallengePool').onclick = async () => {
+      closePlayerCard({ keepFocus: true });
+      if (p.id.startsWith('peer_') && net.connected) {
+        try {
+          const res = await net.request({ t: 'match.challenge', game: 'pool', toClientId: p.id });
+          if (res && res.ok) { stage.unfocus(); sound.coin(); toast(`Sent live Pool challenge to ${p.name}!`); return; }
+        } catch (_) {}
+      }
+      openGame('pool', 'pool0', { opponent: p });
+    };
+  }
+  if ($('bCardChallengeLudo')) {
+    $('bCardChallengeLudo').onclick = async () => {
+      closePlayerCard({ keepFocus: true });
+      if (p.id.startsWith('peer_') && net.connected) {
+        try {
+          const res = await net.request({ t: 'match.challenge', game: 'ludo', toClientId: p.id });
+          if (res && res.ok) { stage.unfocus(); sound.coin(); toast(`Sent live Ludo challenge to ${p.name}!`); return; }
+        } catch (_) {}
+      }
+      openGame('ludo', 'ludo0', { opponent: p });
+    };
+  }
+}
+
+function closePlayerCard({ keepFocus = false } = {}) {
+  if (!cardOpen) return;
+  cardOpen = false;
+  if (disposeCardTilt) { disposeCardTilt(); disposeCardTilt = null; }
+  if (cardStageCtrl) { cardStageCtrl.dispose(); cardStageCtrl = null; }
+  clearTimeout(cardBubbleTimer);
+  $('cardModal')?.classList.add('hidden');
+  if (!keepFocus && !gameOpen) stage.unfocus();
+}
+if ($('cardModalBackdrop')) $('cardModalBackdrop').onclick = () => closePlayerCard();
+
+// ---------- Unified Arcade OS Hub (Play / Quests / Contests / My Card) ----------
+let arcadeOpen = false;
+let arcadeTab = 'play';
+let cachedContests = [];
+
+async function refreshContestsList() {
+  if (serverAuthed && net.connected) {
+    try {
+      const res = await net.request({ t: 'contest.list', limit: 20 });
+      if (res && res.ok && Array.isArray(res.contests)) {
+        cachedContests = res.contests;
+      }
+    } catch (_) {}
+  }
+}
+
+async function refreshLiveMatchesList() {
+  if (net.connected) {
+    try {
+      const res = await net.request({ t: 'match.list' });
+      if (res && res.ok && Array.isArray(res.sessions)) {
+        cachedLiveMatches = res.sessions;
+      }
+    } catch (_) {}
+  }
+}
+
+function renderArcadeOS() {
+  const body = $('arcadeBody');
+  if (!body) return;
+  document.querySelectorAll('.arcTab').forEach(b => b.classList.toggle('on', b.dataset.arctab === arcadeTab));
+
+  if (arcadeTab === 'play') {
+    body.innerHTML = `
+      <div class="arcGrid">
+        <div class="arcGameTile">
+          <div>
+            <div class="arcGameTop"><b>${icon('eightBall', 18)} Neon Billiards</b><span class="arcSkillPill">Skill · Ranked</span></div>
+            <p class="arcGameDesc">8-Ball physics table with spin control, shot power, and Elo skill rating.</p>
+          </div>
+          <div>
+            <div class="arcGameMeta"><span>Win: +25 Coins · +40 Tickets · +120 XP</span><span>ELO: ${prog.rating?.pool ?? 1200}</span></div>
+            <div style="display:flex;gap:6px;margin-top:8px;">
+              <button class="gold" data-play="pool" style="flex:1;">Solo / AI</button>
+              <button class="${activeQueueGame === 'pool' ? 'gold' : ''}" data-queue="pool" style="flex:1;">${activeQueueGame === 'pool' ? 'In Queue...' : `${icon('swords', 14)} 1v1 Live`}</button>
+            </div>
+          </div>
+        </div>
+        <div class="arcGameTile">
+          <div>
+            <div class="arcGameTop"><b>${icon('dice', 18)} Club No.9 Ludo</b><span class="arcSkillPill">Casual · 4P</span></div>
+            <p class="arcGameDesc">3D physical dice-tray board game. Race four tokens home and capture rivals.</p>
+          </div>
+          <div>
+            <div class="arcGameMeta"><span>Win: +20 Coins · +30 Tickets · +100 XP</span><span>ELO: ${prog.rating?.ludo ?? 1200}</span></div>
+            <div style="display:flex;gap:6px;margin-top:8px;">
+              <button class="gold" data-play="ludo" style="flex:1;">Solo / AI</button>
+              <button class="${activeQueueGame === 'ludo' ? 'gold' : ''}" data-queue="ludo" style="flex:1;">${activeQueueGame === 'ludo' ? 'In Queue...' : `${icon('swords', 14)} 1v1 Live`}</button>
+            </div>
+          </div>
+        </div>
+        <div class="arcGameTile">
+          <div>
+            <div class="arcGameTop"><b>${icon('terminal', 18)} PROTO-89</b><span class="arcSkillPill">Mystery · Skill</span></div>
+            <p class="arcGameDesc">1989 glitched prototype cabinet. Decipher the signal to unlock Twilight anomalies.</p>
+          </div>
+          <div>
+            <div class="arcGameMeta"><span>Win: +30 Coins · +50 Tickets · +150 XP</span><span>1989 CRT</span></div>
+            <button class="wide" data-play="proto89" style="margin-top:8px;width:100%;">Boot PROTO-89</button>
+          </div>
+        </div>
+        <div class="arcGameTile">
+          <div>
+            <div class="arcGameTop"><b>${icon('claw', 18)} Cyber Claw 2000</b><span class="arcSkillPill">10 Coins / Drop</span></div>
+            <p class="arcGameDesc">Drop the crane into the capsule pit for tickets, wearables, and rare furniture.</p>
+          </div>
+          <div>
+            <div class="arcGameMeta"><span>4 Capsule Tiers</span><span>Balance: ${prof.coins} Coins</span></div>
+            <button class="wide" data-play="claw" style="margin-top:8px;width:100%;">Play Claw Machine</button>
+          </div>
+        </div>
+      </div>
+      ${cachedLiveMatches.length > 0 ? `
+        <div style="margin-top:14px;">
+          <b style="font-size:12px;color:var(--cyan);letter-spacing:0.6px;text-transform:uppercase;">${icon('eye', 14)} Live Matches in Lounge (${cachedLiveMatches.length})</b>
+          <div style="margin-top:6px;">
+            ${cachedLiveMatches.map(s => `
+              <div class="arcContestRow">
+                <div>
+                  <b style="color:#fff;">${s.game === 'pool' ? icon('eightBall', 15) : icon('dice', 15)} ${s.players?.[0]?.name || 'P1'} vs ${s.players?.[1]?.name || 'P2'}</b>
+                  <span style="font-size:11px;color:var(--mute);margin-left:8px;">${s.spectators || 0} watching</span>
+                </div>
+                <button data-spectate="${s.id}">${icon('eye', 14)} Watch Live</button>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      ` : ''}
+    `;
+    body.querySelectorAll('[data-play]').forEach(btn => {
+      btn.onclick = () => {
+        const g = btn.dataset.play;
+        closeArcadeOS();
+        if (g === 'claw') openClawMachine('claw0');
+        else openGame(g, g === 'pool' ? 'pool0' : g === 'ludo' ? 'ludo0' : 'cab3');
+      };
+    });
+    body.querySelectorAll('[data-queue]').forEach(btn => {
+      btn.onclick = async () => {
+        const g = btn.dataset.queue;
+        if (!net.connected) {
+          closeArcadeOS();
+          openGame(g, g === 'pool' ? 'pool0' : 'ludo0');
+          return;
+        }
+        if (activeQueueGame === g) {
+          await net.request({ t: 'match.leaveQueue' }).catch(() => {});
+          activeQueueGame = null;
+          toast('Left 1v1 matchmaking queue');
+          renderArcadeOS();
+          return;
+        }
+        try {
+          const res = await net.request({ t: 'match.queue', game: g });
+          if (res && res.ok && res.queued) {
+            activeQueueGame = g;
+            sound.coin();
+            toast(`⏳ Searching for live 1v1 ${GAME_INFO[g]?.name || g} rival...`);
+            renderArcadeOS();
+          }
+        } catch (_) {}
+      };
+    });
+    body.querySelectorAll('[data-spectate]').forEach(btn => {
+      btn.onclick = async () => {
+        const sid = btn.dataset.spectate;
+        try {
+          const res = await net.request({ t: 'match.spectate', sessionId: sid });
+          if (res && res.ok && res.session) {
+            activeOnlineSession = { session: res.session, mySeat: 'spectator' };
+            openOnlineGame(res.session, 'spectator');
+          }
+        } catch (_) {}
+      };
+    });
+    return;
+  }
+
+  if (arcadeTab === 'quests') {
+    prog = refreshQuests(prog);
+    const list = prog.quests?.list || [];
+    body.innerHTML = `
+      <div style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:12px;color:var(--mute);">Shared daily bounties for <b>${prog.quests.day}</b> · Complete matches &amp; hang out to claim tickets!</span>
+      </div>
+      ${list.map(q => {
+        const def = questDef(q.id) || { text: q.id, reward: { tickets: 25, xp: 50 } };
+        const pct = Math.min(100, Math.round((q.progress / q.goal) * 100));
+        return `<div class="arcQuestRow">
+          <div>
+            <b style="font-size:13px;color:#fff;">${def.text}</b>
+            <div style="font-size:11px;color:var(--mute);margin-top:2px;">Progress: ${q.progress}/${q.goal} &nbsp;·&nbsp; Reward: <b style="color:var(--cyan)">+${def.reward.tickets} Tickets</b> <b style="color:#a37bff">+${def.reward.xp} XP</b></div>
+            <div class="arcQuestBar"><i style="width:${pct}%"></i></div>
+          </div>
+          <button class="${q.done && !q.claimed ? 'gold' : ''}" data-claim="${q.id}" ${!q.done || q.claimed ? 'disabled' : ''}>
+            ${q.claimed ? `${icon('check', 14)} Claimed` : q.done ? 'Claim Bounty' : `${q.progress}/${q.goal}`}
+          </button>
+        </div>`;
+      }).join('')}
+    `;
+    body.querySelectorAll('[data-claim]').forEach(btn => {
+      btn.onclick = async () => {
+        const qid = btn.dataset.claim;
+        if (serverAuthed && net.connected) {
+          try {
+            const res = await net.request({ t: 'claimQuest', id: qid });
+            if (res && res.ok) {
+              sound.win();
+              toast(`Bounty claimed! +${res.reward.tickets} Tickets +${res.reward.xp} XP`);
+              renderArcadeOS();
+              updateWalletUI();
+              return;
+            }
+          } catch (_) {}
+        }
+        const res = claimQuest(prog, qid);
+        if (res.reward) {
+          prog = res.profile;
+          prof.tickets += res.reward.tickets || 0;
+          prof.coins += res.reward.coins || 0;
+          sound.win();
+          toast(`Bounty claimed! +${res.reward.tickets} Tickets +${res.reward.xp} XP`);
+          persist();
+          updateWalletUI();
+          renderArcadeOS();
+        }
+      };
+    });
+    return;
+  }
+
+  if (arcadeTab === 'contests') {
+    body.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+        <div>
+          <b style="color:#fff;font-size:13px;">Winner-Takes-Pot Showdowns (Escrow Ledger)</b>
+          <div style="font-size:11px;color:var(--mute);">Players enter tokens into escrow; the platform settles the pot to the winner. Real-money skill cups (USD/NGN) unlock behind KYC verification.</div>
+        </div>
+        <button id="bCreatePoolCup" class="gold">${icon('swords', 14)} Create 25 Coin Pool Showdown</button>
+      </div>
+      <div id="arcContestList">
+        ${cachedContests.length === 0 ? `<div class="arcContestRow"><span>No open player contests yet — create a 25 Coin Pool Showdown above!</span></div>` : cachedContests.map(c => `
+          <div class="arcContestRow">
+            <div>
+              <b style="color:#fff;">${icon('eightBall', 15)} ${GAME_INFO[c.game]?.name || c.game} Showdown</b>
+              <div style="font-size:11px;color:var(--mute);">Entry: <b style="color:var(--gold)">${c.entry_fee} ${c.currency}</b> &nbsp;·&nbsp; Entrants: <b>${c.players}/${c.max_players}</b> &nbsp;·&nbsp; Status: <b>${c.status.toUpperCase()}</b></div>
+            </div>
+            <button class="gold" data-join-contest="${c.id}" ${c.status !== 'open' ? 'disabled' : ''}>Enter (${c.entry_fee} Coins)</button>
+          </div>
+        `).join('')}
+      </div>
+    `;
+    const cBtn = $('bCreatePoolCup');
+    if (cBtn) {
+      cBtn.onclick = async () => {
+        if (serverAuthed && net.connected) {
+          try {
+            const res = await net.request({ t: 'contest.create', game: 'pool', currency: 'COIN', entryFee: 25, maxPlayers: 2, rakeBps: 1000 });
+            if (res && res.ok) {
+              sound.win();
+              toast('Created 25🪙 Pool Showdown!');
+              await refreshContestsList();
+              renderArcadeOS();
+              return;
+            }
+          } catch (_) {}
+        }
+        // Offline preview contest
+        cachedContests.unshift({ id: 'local_' + Date.now(), game: 'pool', currency: 'COIN', entry_fee: 25, players: 1, max_players: 2, status: 'open' });
+        sound.win();
+        toast('Created 25🪙 Pool Showdown!');
+        renderArcadeOS();
+      };
+    }
+    body.querySelectorAll('[data-join-contest]').forEach(btn => {
+      btn.onclick = async () => {
+        const cid = btn.dataset.joinContest;
+        if (serverAuthed && net.connected && !cid.startsWith('local_')) {
+          try {
+            const res = await net.request({ t: 'contest.join', contestId: cid });
+            if (res && res.ok) {
+              sound.coin();
+              await refreshContestsList();
+              renderArcadeOS();
+              if (res.contest?.status === 'locked') {
+                toast('Showdown full! Starting live 1v1 match...');
+              } else {
+                toast('Entered 25🪙 Showdown! Waiting for rival (or playing practice)...');
+                closeArcadeOS();
+                openGame('pool', 'pool0');
+              }
+              return;
+            }
+          } catch (_) {}
+        }
+        closeArcadeOS();
+        openGame('pool', 'pool0');
+      };
+    });
+    return;
+  }
+
+  if (arcadeTab === 'card') {
+    const model = cardModel({ name: me.name, loadout: me.loadout, profile: prog, tag: 'CHALLENGER', crew: 'NEON' });
+    body.innerHTML = `<div style="display:flex;justify-content:center;padding:8px 0;">${cardHTML(model)}</div>`;
+    tiltCard(body);
+  }
+}
+
+async function openArcadeOS(tab = 'play') {
+  arcadeTab = tab;
+  arcadeOpen = true;
+  $('arcadeModal')?.classList.remove('hidden');
+  sound.click();
+  if (tab === 'contests') await refreshContestsList();
+  else if (tab === 'play') await refreshLiveMatchesList();
+  renderArcadeOS();
+}
+
+function closeArcadeOS() {
+  if (!arcadeOpen) return;
+  arcadeOpen = false;
+  $('arcadeModal')?.classList.add('hidden');
+}
+
+if ($('arcadeClose')) $('arcadeClose').onclick = closeArcadeOS;
+if ($('hudArcadeBtn')) $('hudArcadeBtn').onclick = () => arcadeOpen ? closeArcadeOS() : openArcadeOS('play');
+if ($('hudLevelBtn')) $('hudLevelBtn').onclick = () => openPlayerCard('me');
+document.querySelectorAll('.arcTab').forEach(btn => {
+  btn.onclick = async () => {
+    arcadeTab = btn.dataset.arctab;
+    sound.click();
+    if (arcadeTab === 'contests') await refreshContestsList();
+    else if (arcadeTab === 'play') await refreshLiveMatchesList();
+    renderArcadeOS();
+  };
 });
 
 // ---------- subspace archive terminal ----------
@@ -1394,6 +2247,7 @@ function bindWorldEvents(w) {
       } else if (e.action === 'shop') {
         openPrizeShop();
       } else if (e.action === 'play') {
+        if (gameOpen) return;
         sound.coin();
         const gid = r?.game || (r?.type === 'pool' ? 'pool' : r?.type === 'ludotable' ? 'ludo' : null);
         if (gid && GAMES[gid]) openGame(gid, r.id);
@@ -1473,6 +2327,10 @@ cv.addEventListener('pointerup', e => {
     return;
   }
   const pk = stage.pick(e.clientX, e.clientY);
+  if (pk.person) {
+    openPlayerCard(pk.person);
+    return;
+  }
   if (pk.prop) {
     const r = world.props.get(pk.prop), free = world.freeUses(u => u.prop === pk.prop);
     if (!r.uses.length) return;
@@ -1541,6 +2399,8 @@ addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
   if (k === 'enter') { e.preventDefault(); $('chatIn').focus(); return; }
   if (k === 'escape') {
+    if (cardOpen) { closePlayerCard(); return; }
+    if (arcadeOpen) { closeArcadeOS(); return; }
     if (phoneOpen) { closePhone(); return; }
     if (gameOpen) closeGame();
     if (clawOpen) closeClawMachine();
@@ -1558,6 +2418,16 @@ addEventListener('keydown', e => {
       if (heldProp) { heldProp = null; stage.setGhost(null); }
       else setBuildMode(false);
     }
+    return;
+  }
+  if (k === 'tab') {
+    e.preventDefault();
+    if (arcadeOpen) closeArcadeOS(); else openArcadeOS('play');
+    return;
+  }
+  if (k === 'c' && !e.ctrlKey && !e.metaKey && !gameOpen && !clawOpen) {
+    e.preventDefault();
+    if (cardOpen) closePlayerCard(); else openPlayerCard('me');
     return;
   }
   if (clawOpen) {
@@ -1623,17 +2493,35 @@ function keyMove(dt) {
 }
 
 function toggleView(mode, notify = true) {
-  const next = mode || (stage.camMode === '3d' ? 'iso' : '3d');
+  const order = ['3d', 'close', 'iso'];
+  const cur = stage.camPreset || stage.camMode || '3d';
+  const next = mode || order[(order.indexOf(cur) + 1) % order.length];
   stage.setCamMode(next);
   const btn = $('bView');
   if (btn) {
-    btn.classList.toggle('on', next === '3d');
+    btn.classList.toggle('on', next !== 'iso');
     const lbl = btn.querySelector('span');
-    if (lbl) lbl.textContent = next === '3d' ? '3D' : 'ISO';
+    if (lbl) lbl.textContent = next.toUpperCase();
   }
   const pLbl = $('pAppViewLabel');
-  if (pLbl) pLbl.textContent = next === '3d' ? '3D' : 'ISO';
-  if (notify) toast(next === '3d' ? '✦ 3D Space View (Drag or WASD to explore)' : 'Classic Isometric View');
+  if (pLbl) pLbl.textContent = next === 'close' ? 'ACT' : next.toUpperCase();
+  document.querySelectorAll('.camRigBtn').forEach(b => {
+    b.classList.toggle('on', b.dataset.cam === next);
+  });
+  if (notify) {
+    const names = { '3d': '3D Follow Camera [Right-Drag or Q/E to Orbit]', close: 'Close Over-Shoulder Action Camera', iso: 'Tactical Isometric Club View' };
+    toast(names[next] || 'Camera Updated');
+  }
+}
+
+if ($('hudCamRig')) {
+  $('hudCamRig').onclick = e => {
+    const b = e.target.closest('.camRigBtn');
+    if (b && b.dataset.cam) {
+      sound.click();
+      toggleView(b.dataset.cam, true);
+    }
+  };
 }
 
 // ---------- HUD buttons ----------
@@ -1675,12 +2563,36 @@ $('bQual').onclick = () => { autoQ = false; setQ(QS[(QS.indexOf(quality) + 1) % 
 if ($('bQual')) $('bQual').dataset.q = quality;
 $('bMute').onclick = () => { sound.setMuted(!sound.muted); $('bMute').style.opacity = sound.muted ? 0.4 : 1; sound._ctx(); };
 $('emotes').innerHTML = [['wave', 'Wave'], ['dance', 'Dance'], ['cheer', 'Cheer'], ['think', 'Think']].map(([k, l], i) => `<button data-e="${k}"><kbd>${i + 1}</kbd> ${l}</button>`).join('');
-$('emotes').onclick = e => { const b = e.target.closest('button'); if (b && EMOTES.includes(b.dataset.e)) { cmd({ t: 'emote', name: b.dataset.e }); sound.pop(); } };
-$('chat').onsubmit = e => { e.preventDefault(); const v = $('chatIn').value.trim(); if (v) cmd({ t: 'say', text: v }); $('chatIn').value = ''; $('chatIn').blur(); };
+$('emotes').onclick = e => {
+  const b = e.target.closest('button');
+  if (b && EMOTES.includes(b.dataset.e)) {
+    cmd({ t: 'emote', name: b.dataset.e });
+    sound.pop();
+    prog = trackEvent(prog, { type: 'emote' }).profile;
+    if (serverAuthed && net.connected) net.request({ t: 'trackEvent', eventType: 'emote' }).catch(() => {});
+    persist();
+    updateWalletUI();
+  }
+};
+$('chat').onsubmit = e => {
+  e.preventDefault();
+  const v = $('chatIn').value.trim();
+  if (v) {
+    cmd({ t: 'say', text: v });
+    prog = trackEvent(prog, { type: 'chat' }).profile;
+    if (serverAuthed && net.connected) net.request({ t: 'trackEvent', eventType: 'chat' }).catch(() => {});
+    persist();
+    updateWalletUI();
+  }
+  $('chatIn').value = '';
+  $('chatIn').blur();
+};
 
 // ---------- Character Smartphone Trigger & App Bindings ----------
 if ($('phoneToggleBtn')) $('phoneToggleBtn').onclick = () => togglePhone();
 if ($('phoneHomeBar')) $('phoneHomeBar').onclick = () => closePhone();
+if ($('pAppArcade')) $('pAppArcade').onclick = () => { closePhone(); openArcadeOS('play'); };
+if ($('pAppCard')) $('pAppCard').onclick = () => { closePhone(); openPlayerCard('me'); };
 if ($('pAppDress')) $('pAppDress').onclick = () => { closePhone(); openDress(); };
 if ($('pAppBuild')) $('pAppBuild').onclick = () => { closePhone(); setBuildMode(!buildMode); };
 if ($('pAppMap')) $('pAppMap').onclick = () => { closePhone(); openMap(); };
@@ -1797,7 +2709,7 @@ function renderDress() {
 let wasFollowing = false;
 function openDress() { wasFollowing = following; $('nameIn').value = me.name; renderDress(); $('dress').classList.remove('hidden'); stage.zoomTo = 5.2; following = true; stage.follow('me'); $('bFollow').classList.add('on'); }
 function closeDress() { if ($('dress').classList.contains('hidden')) return; $('dress').classList.add('hidden'); stage.zoomTo = 12; if (!wasFollowing) { following = false; stage.follow(null); $('bFollow').classList.remove('on'); } persist(); }
-function persist() { save({ name: me.name, loadout: me.loadout, coins: prof.coins, tickets: prof.tickets, inventory: prof.inventory }); }
+function persist() { save({ name: me.name, loadout: me.loadout, coins: prof.coins, tickets: prof.tickets, inventory: prof.inventory, progression: prog }); }
 $('bDress').onclick = () => $('dress').classList.contains('hidden') ? openDress() : closeDress();
 $('dressRows').onclick = e => { const b = e.target.closest('button'); if (!b) return; const l = { ...me.loadout, [b.dataset.k]: b.dataset.v }; cmd({ t: 'loadout', loadout: l }); renderDress(); sound.click(); };
 $('dressRand').onclick = () => { cmd({ t: 'loadout', loadout: randomLoadout() }); renderDress(); sound.click(); };
@@ -1815,8 +2727,12 @@ function frame(now) {
   if ((hoverT -= dt) < 0) { hoverT = 0.15; if (ptr) hoverReq = ptr; }
   if (hoverReq && !gameOpen) {
     const pk = stage.pick(hoverReq.x, hoverReq.y); hoverReq = null; stage.setHoverProp(pk.prop);
-    const r = pk.prop && world.props.get(pk.prop), tip = $('tip');
-    if (r && r.uses.length) { const free = world.freeUses(u => u.prop === pk.prop); tip.textContent = free.length ? verb(r, free[0]) : r.T.label + ' · full'; tip.style.display = 'block'; cv.style.cursor = 'pointer'; } else { tip.style.display = 'none'; cv.style.cursor = 'default'; }
+    const r = pk.prop && world.props.get(pk.prop), pHover = pk.person && world.people.get(pk.person), tip = $('tip');
+    if (pHover) {
+      tip.textContent = `View ${pHover.name}'s Player Card`; tip.style.display = 'block'; cv.style.cursor = 'pointer';
+    } else if (r && r.uses.length) {
+      const free = world.freeUses(u => u.prop === pk.prop); tip.textContent = free.length ? verb(r, free[0]) : r.T.label + ' · full'; tip.style.display = 'block'; cv.style.cursor = 'pointer';
+    } else { tip.style.display = 'none'; cv.style.cursor = 'default'; }
   }
   // Life-sim progression & clock
   lifeSim.step(dt);
@@ -1907,4 +2823,4 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
-window.G = { assets, get world() { return world; }, stage, sound, radio, MIAMI_PLAYLIST, cmd, get me() { return me; }, get currentRoom() { return currentRoom; }, switchRoom, teleportTo, openGame, closeGame, toast, GAMES, setBuildMode, resetLounge, CATALOG, openClawMachine, closeClawMachine, openPrizeShop, closePrizeShop, openTerminal, closeTerminal, openLoftPC, closeLoftPC, openMoonBase, closeMoonBase, openJuke, closeJuke, toggleView, prof, net, lifeSim, citizens, openMap, closeMap, openDialogue, closeDialogue, openGigs, closeGigs, openSeed, closeSeed };
+window.G = { assets, get world() { return world; }, stage, sound, radio, MIAMI_PLAYLIST, cmd, get me() { return me; }, get currentRoom() { return currentRoom; }, switchRoom, teleportTo, openGame, closeGame, toast, GAMES, setBuildMode, resetLounge, CATALOG, openClawMachine, closeClawMachine, openPrizeShop, closePrizeShop, openTerminal, closeTerminal, openLoftPC, closeLoftPC, openMoonBase, closeMoonBase, openJuke, closeJuke, toggleView, prof, get prog() { return prog; }, net, lifeSim, citizens, openMap, closeMap, openDialogue, closeDialogue, openGigs, closeGigs, openSeed, closeSeed, openPlayerCard, closePlayerCard, openArcadeOS, closeArcadeOS, handleMatchResult };

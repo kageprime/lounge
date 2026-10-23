@@ -20,14 +20,19 @@ export class Stage {
     host.appendChild(r.domElement);
     this.scene = new THREE.Scene(); this.scene.background = new THREE.Color(0x0c0a16);
     this.isDistrict = !!(world.layout.buildings && world.layout.buildings.length);
-    this.camMode = 'iso'; // default to classic crisp isometric view ('iso' | '3d')
+    this.camMode = '3d'; // default to immersive 3D third-person perspective ('3d' | 'iso')
+    this.camPreset = '3d'; // '3d' (Follow) | 'close' (Action Over-Shoulder) | 'iso' (Tactical Iso)
     this.orthoCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 400);
-    this.perspCam = new THREE.PerspectiveCamera(55, 1, 0.1, 300);
-    this.cam = this.orthoCam;
-    this.yaw = Math.PI / 4; this.yawTo = this.yaw; this.zoom = 12; this.zoomTo = 12;
-    this.pitch3D = 24 * Math.PI / 180; this.pitch3DTo = this.pitch3D;
-    this.dist3D = 9.5; this.dist3DTo = 9.5;
-    this.target = new THREE.Vector3(world.layout.w / 2, 0.6, world.layout.h / 2); this.look = this.target.clone(); this.followId = null; this.pan = new THREE.Vector3();
+    this.perspCam = new THREE.PerspectiveCamera(46, 1, 0.1, 320);
+    this.fovTo = 46;
+    this.cam = this.perspCam;
+    this.yaw = Math.PI / 4; this.yawTo = this.yaw; this.zoom = 10.5; this.zoomTo = 10.5;
+    this.pitch3D = 20 * Math.PI / 180; this.pitch3DTo = this.pitch3D;
+    this.dist3D = 6.2; this.dist3DTo = 6.2;
+    this.inspectId = null;
+    this.lookOffset = new THREE.Vector3(); this.lookOffsetTo = new THREE.Vector3();
+    this.leadVec = new THREE.Vector3();
+    this.target = new THREE.Vector3(world.layout.w / 2, 0.85, world.layout.h / 2); this.look = this.target.clone(); this.followId = null; this.pan = new THREE.Vector3();
     this.avatars = new Map(); this.tags = new Map(); this.propGroups = new Map(); this.t = 0;
     this.buildingMap = new Map();
     if (world.layout.buildings) {
@@ -218,11 +223,28 @@ export class Stage {
     }
   }
   setCamMode(mode) {
-    if (this.camMode === mode) return;
-    this.camMode = mode;
-    this.cam = mode === '3d' ? this.perspCam : this.orthoCam;
+    if (mode === 'close') {
+      this.camPreset = 'close';
+      this.camMode = '3d';
+      this.cam = this.perspCam;
+      this.dist3DTo = 4.1;
+      this.pitch3DTo = 14 * Math.PI / 180;
+      this.fovTo = 42;
+    } else if (mode === '3d') {
+      this.camPreset = '3d';
+      this.camMode = '3d';
+      this.cam = this.perspCam;
+      this.dist3DTo = 6.2;
+      this.pitch3DTo = 20 * Math.PI / 180;
+      this.fovTo = 46;
+    } else {
+      this.camPreset = 'iso';
+      this.camMode = 'iso';
+      this.cam = this.orthoCam;
+      this.zoomTo = 10.5;
+    }
     if (this.renderPass) this.renderPass.camera = this.cam;
-    if (this.ceiling) this.ceiling.visible = !this.isDistrict && mode === '3d';
+    if (this.ceiling) this.ceiling.visible = false;
     this.resize();
   }
   setPhase(p) { this.phase = p; }
@@ -533,14 +555,46 @@ export class Stage {
   _fit() { const z = this.zoom, a = this.aspect || 1; Object.assign(this.orthoCam, { left: -z * a, right: z * a, top: z, bottom: -z }); this.orthoCam.updateProjectionMatrix(); }
   _camUpdate(dt) {
     if (this._intro) { this.yawTo = Math.PI / 4; if (Math.abs(angDiff(this.yaw, this.yawTo)) < 0.02) this._intro = false; }
-    this.yaw += angDiff(this.yaw, this.yawTo) * Math.min(1, dt * 8); if (Math.abs(angDiff(this.yaw, this.yawTo)) < 1e-4) this.yaw = this.yawTo;
-    this.pitch3D += (this.pitch3DTo - this.pitch3D) * Math.min(1, dt * 8);
-    this.dist3D += (this.dist3DTo - this.dist3D) * Math.min(1, dt * 8);
-    this.zoom += (this.zoomTo - this.zoom) * Math.min(1, dt * 8); this._fit();
+    this.yaw += angDiff(this.yaw, this.yawTo) * Math.min(1, dt * 8.5); if (Math.abs(angDiff(this.yaw, this.yawTo)) < 1e-4) this.yaw = this.yawTo;
+    this.pitch3D += (this.pitch3DTo - this.pitch3D) * Math.min(1, dt * 8.5);
+    this.dist3D += (this.dist3DTo - this.dist3D) * Math.min(1, dt * 8.5);
+    this.zoom += (this.zoomTo - this.zoom) * Math.min(1, dt * 8.5); this._fit();
+    if (Math.abs(this.perspCam.fov - this.fovTo) > 0.05) {
+      this.perspCam.fov += (this.fovTo - this.perspCam.fov) * Math.min(1, dt * 8);
+      this.perspCam.updateProjectionMatrix();
+    }
     const W = this.world.layout.w, H = this.world.layout.h;
     const f = this.followId && this.avatars.get(this.followId);
-    if (f) { this.target.x = f.position.x; this.target.z = f.position.z; }
-    this.look.lerp(new THREE.Vector3(this.target.x, this.camMode === '3d' ? 1.2 : 0.6, this.target.z), Math.min(1, dt * 8));
+    const pSim = this.followId && this.world.people.get(this.followId);
+    if (f) {
+      this.target.x = f.position.x;
+      this.target.z = f.position.z;
+      // Velocity look-ahead when walking in normal follow mode
+      if (pSim && pSim.path && pSim.path.length && !this.inspectId) {
+        const lx = Math.sin(pSim.vis) * 0.55;
+        const lz = Math.cos(pSim.vis) * 0.55;
+        this.leadVec.lerp(new THREE.Vector3(lx, 0, lz), Math.min(1, dt * 5));
+      } else {
+        this.leadVec.lerp(new THREE.Vector3(0, 0, 0), Math.min(1, dt * 6));
+      }
+    } else {
+      this.leadVec.set(0, 0, 0);
+    }
+
+    // Screen-space horizontal offset for Hero Character Inspection (character stands on left, Dossier card floats on right)
+    if (this.inspectId) {
+      const rightX = Math.cos(this.yaw);
+      const rightZ = -Math.sin(this.yaw);
+      this.lookOffsetTo.set(rightX * 0.62, 0, rightZ * 0.62);
+    } else {
+      this.lookOffsetTo.set(0, 0, 0);
+    }
+    this.lookOffset.lerp(this.lookOffsetTo, Math.min(1, dt * 9));
+
+    const wantY = this.inspectId ? 0.84 : (this.camMode === '3d' ? (this.camPreset === 'close' ? 1.02 : 0.92) : 0.6);
+    const goalX = this.target.x + this.leadVec.x + this.lookOffset.x;
+    const goalZ = this.target.z + this.leadVec.z + this.lookOffset.z;
+    this.look.lerp(new THREE.Vector3(goalX, wantY, goalZ), Math.min(1, dt * 9.5));
 
     if (this.camMode === '3d') {
       const cp = Math.cos(this.pitch3D), sp = Math.sin(this.pitch3D);
@@ -548,10 +602,9 @@ export class Stage {
       let cx = this.look.x + sy * cp * this.dist3D;
       let cyPos = this.look.y + sp * this.dist3D;
       let cz = this.look.z + cy * cp * this.dist3D;
-      // Keep perspective camera inside boundaries with generous margin for zoom
-      cx = Math.max(-10, Math.min(W + 10, cx));
-      cz = Math.max(-10, Math.min(H + 10, cz));
-      cyPos = Math.max(0.6, Math.min(18.0, cyPos));
+      cx = Math.max(-12, Math.min(W + 12, cx));
+      cz = Math.max(-12, Math.min(H + 12, cz));
+      cyPos = Math.max(0.48, Math.min(18.0, cyPos));
       this.perspCam.position.set(cx, cyPos, cz);
       this.perspCam.lookAt(this.look);
       this.perspCam.updateMatrixWorld();
@@ -636,10 +689,8 @@ export class Stage {
     const dg = new THREE.BufferGeometry(); dg.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     this.dust = new THREE.Points(dg, new THREE.PointsMaterial({ size: 1.8, sizeAttenuation: false, color: isLoft ? 0xffdfba : 0xcfc2ff, transparent: true, opacity: 0.32, depthWrite: false, blending: THREE.AdditiveBlending })); s.add(this.dust);
 
-    // City Sky, Distant Skyline & Stars (kept aside for classic lounge to prevent camera blockage)
-    if (this.isDistrict) {
-      this._createSkyAndSkyline();
-    }
+    // City Sky, Distant Skyline & Stars for rich 3D horizon depth
+    this._createSkyAndSkyline();
   }
 
   _createSkyAndSkyline() {
@@ -827,9 +878,66 @@ export class Stage {
       }
     }
   }
-  // camera focus on a prop (used when sitting down at a game) and release
-  focus(x, z, zoom) { this._saved = this._saved || { follow: this.followId, zoom: this.zoomTo, dist: this.dist3DTo }; this.followId = null; this.target.set(x, 0.8, z); this.zoomTo = zoom; this.dist3DTo = 3.6; }
-  unfocus() { if (!this._saved) return; const s = this._saved; this._saved = null; this.zoomTo = s.zoom; this.dist3DTo = s.dist || 9.5; this.follow(s.follow); }
+  // camera focus on a prop or person (used when sitting down at a game or inspecting a player card) and release
+  focus(x, z, zoom = 4.6, opts = {}) {
+    this._saved = this._saved || {
+      follow: this.followId,
+      zoom: this.zoomTo,
+      dist: this.dist3DTo,
+      pitch: this.pitch3DTo,
+      yaw: this.yawTo
+    };
+    this.followId = null;
+    this.target.set(x, opts.y ?? 0.8, z);
+    this.zoomTo = zoom;
+    this.dist3DTo = opts.dist ?? 3.2;
+    this.pitch3DTo = opts.pitch ?? 0.38;
+    if (opts.yawOffset != null) this.yawTo = (this._saved.yaw ?? Math.PI / 4) + opts.yawOffset;
+  }
+  focusPerson(id) {
+    const av = this.avatars.get(id);
+    if (!av) return;
+    this._saved = this._saved || {
+      camMode: this.camMode,
+      camPreset: this.camPreset,
+      follow: this.followId,
+      zoom: this.zoomTo,
+      dist: this.dist3DTo,
+      pitch: this.pitch3DTo,
+      yaw: this.yawTo,
+      fov: this.fovTo
+    };
+    this.inspectId = id;
+    if (this.camMode !== '3d') {
+      this.camMode = '3d';
+      this.cam = this.perspCam;
+      if (this.renderPass) this.renderPass.camera = this.cam;
+      this.resize();
+    }
+    this.followId = id;
+    this.fovTo = 36;
+    this.dist3DTo = 2.55;
+    this.pitch3DTo = 11 * Math.PI / 180;
+  }
+  unfocus() {
+    this.inspectId = null;
+    if (!this._saved) return;
+    const s = this._saved;
+    this._saved = null;
+    if (s.camMode && s.camMode !== this.camMode) {
+      this.camMode = s.camMode;
+      this.cam = s.camMode === '3d' ? this.perspCam : this.orthoCam;
+      if (this.renderPass) this.renderPass.camera = this.cam;
+      this.resize();
+    }
+    if (s.camPreset) this.camPreset = s.camPreset;
+    this.zoomTo = s.zoom ?? 10.5;
+    this.dist3DTo = s.dist || 6.2;
+    this.fovTo = s.fov || 46;
+    if (s.pitch != null) this.pitch3DTo = s.pitch;
+    if (s.yaw != null) this.yawTo = s.yaw;
+    this.follow(s.follow);
+  }
 
   // ---- people -----------------------------------------------------------
   _ensure(p) {
@@ -849,7 +957,13 @@ export class Stage {
       const dist = Math.hypot(p.x - av.position.x, p.y - av.position.z);
       if (dist > 3.0) { av.position.x = p.x; av.position.z = p.y; }
       else { av.position.x += (p.x - av.position.x) * Math.min(1, dt * 20); av.position.z += (p.y - av.position.z) * Math.min(1, dt * 20); }
-      av.rotation.y = p.vis;
+      if (this.inspectId === p.id && !p.seat) {
+        // Heroic 3/4 turn toward the 3D camera during live character inspection
+        const wantFace = this.yaw + 0.22;
+        av.rotation.y += angDiff(av.rotation.y, wantFace) * Math.min(1, dt * 10);
+      } else {
+        av.rotation.y = p.vis;
+      }
       pose(av, p, this.t, dt);
       const tg = this.tags.get(p.id), txt = p.say ? p.say.text : '';
       if (tg.text !== txt) { tg.text = txt; tg.bub.textContent = txt; tg.bub.style.display = txt ? 'block' : 'none'; }

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Neon Arcade Lounge</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,600;0,700;1,700&family=Inter:wght@500;600;700;800&family=JetBrains+Mono:wght@600;700&display=swap">
 <link rel="stylesheet" href="style.css">
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }
@@ -18,21 +18,51 @@
 <div id="hud">
   <div id="topBar">
     <div id="brand">
-      <b>TWILIGHT ARCADE</b>
-      <span id="pop"></span>
+      <div class="hudBrandPlate">
+        <span class="hudBrandPulse"></span>
+        <b>TWILIGHT // ARCADE</b>
+        <span id="pop"></span>
+      </div>
       <button id="hudLevelBtn" class="hudLevelBtn" title="Your Level &amp; Player Card (C)">
         <span id="hudLevelChip"></span>
       </button>
-      <div id="wallet"><span id="badgeCoins" title="Coins">🪙 <b id="coinVal">100</b></span><span id="badgeTickets" title="Tickets">🎟️ <b id="ticketVal">0</b></span></div>
+      <div id="wallet">
+        <span id="badgeCoins" title="Arcade Coins">
+          <svg class="svgIcon coinSvg" width="15" height="15" viewBox="0 0 24 24" fill="none"><polygon points="12 2 20.5 7 20.5 17 12 22 3.5 17 3.5 7" stroke="currentColor" stroke-width="2" fill="rgba(255,184,74,0.18)"/><polygon points="12 6.5 14 10.2 18 10.8 15 13.6 15.8 17.5 12 15.6 8.2 17.5 9 13.6 6 10.8 10 10.2" fill="currentColor"/></svg>
+          <b id="coinVal">100</b>
+        </span>
+        <span id="badgeTickets" title="Prize Tickets">
+          <svg class="svgIcon ticketSvg" width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4V8Z" stroke="currentColor" stroke-width="2" fill="rgba(84,224,238,0.16)"/><line x1="9.5" y1="6" x2="9.5" y2="18" stroke="currentColor" stroke-width="1.8" stroke-dasharray="2.2 2.2"/></svg>
+          <b id="ticketVal">0</b>
+        </span>
+      </div>
       <button id="hudArcadeBtn" class="hudArcadeBtn" title="Open Arcade OS: Play, Quests &amp; Contests (Tab)">
-        <span>🏆 ARCADE OS</span>
+        <svg class="svgIcon" width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M7 4h10v5a5 5 0 0 1-10 0V4Z" stroke="currentColor" stroke-width="2" fill="rgba(255,184,74,0.2)"/><path d="M7 6H4v2a3 3 0 0 0 3 3M17 6h3v2a3 3 0 0 1-3 3M12 14v4M8 20h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <span>ARCADE OS</span>
+        <kbd class="hudKey">TAB</kbd>
         <span id="questBadgeDot" class="questBadgeDot hidden">!</span>
       </button>
-      <span id="hudClockBadge" class="hudClockBadge">🕒 <b id="clockVal">18:00</b></span>
+      <div id="hudCamRig" class="hudCamRig" title="Camera Perspective &amp; Orbit Controls [V / Q / E]">
+        <button id="camBtn3D" class="camRigBtn on" data-cam="3d" title="3D Third-Person Follow Camera (V)">
+          <svg class="svgIcon" width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z" stroke="currentColor" stroke-width="2"/><path d="m12 12 8-4.5M12 12 4 7.5M12 12v9" stroke="currentColor" stroke-width="1.8"/></svg>
+          <span>3D FOLLOW</span>
+        </button>
+        <button id="camBtnClose" class="camRigBtn" data-cam="close" title="Close Action Camera">
+          <span>ACTION</span>
+        </button>
+        <button id="camBtnIso" class="camRigBtn" data-cam="iso" title="Classic Isometric Overview">
+          <span>ISO</span>
+        </button>
+      </div>
+      <span id="hudClockBadge" class="hudClockBadge">
+        <svg class="svgIcon" width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <b id="clockVal">18:00</b>
+      </span>
     </div>
   </div>
   <div id="tip"></div>
   <div id="promptE" class="hidden"></div>
+  <div id="challengeBanner" class="challengeBanner hidden"></div>
   <div id="toast"></div>
   <div id="log"></div>
 
@@ -40,12 +70,12 @@
   <div id="bottom">
     <form id="chat" autocomplete="off"><input id="chatIn" maxlength="80" placeholder="Press Enter to chat…"><button>Send</button></form>
   </div>
-  <div id="help"><kbd>WASD / Click</kbd> Move &nbsp;·&nbsp; <kbd>Click Avatar</kbd> Player Card &nbsp;·&nbsp; <kbd>Tab</kbd> Arcade OS &nbsp;·&nbsp; <kbd>📱 PHONE [P]</kbd></div>
+  <div id="help"><kbd>WASD / Click</kbd> Move &nbsp;·&nbsp; <kbd>Right-Drag / Q·E</kbd> 3D Orbit &nbsp;·&nbsp; <kbd>Click Avatar</kbd> 3D Hero Inspect &nbsp;·&nbsp; <kbd>V</kbd> Camera &nbsp;·&nbsp; <kbd>Tab</kbd> Arcade OS</div>
 
-  <!-- GTA VI Character Smartphone Trigger Pill -->
-  <button id="phoneToggleBtn" class="phonePill" title="Open Character Smartphone (P or ↑)">
-    <span class="phonePillIcon">📱</span>
-    <span class="phonePillLabel">PHONE</span>
+  <!-- Cyber-Deck Trigger Pill -->
+  <button id="phoneToggleBtn" class="phonePill" title="Open Cyber-Deck Terminal (P or ↑)">
+    <span class="phonePillIcon"><svg class="svgIcon" width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="6" y="2.5" width="12" height="19" rx="2.5" stroke="currentColor" stroke-width="2"/><line x1="10" y1="5.5" x2="14" y2="5.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="18" r="1.1" fill="currentColor"/></svg></span>
+    <span class="phonePillLabel">DECK</span>
     <kbd>P</kbd>
   </button>
 
@@ -64,8 +94,8 @@
             <div class="islandEq hidden" id="islandEq"><span></span><span></span><span></span></div>
           </div>
           <div class="phoneStatusIcons">
-            <span class="pSig">📶</span>
-            <span class="pBat">99% 🔋</span>
+            <span class="pSig">5G</span>
+            <span class="pBat">99%</span>
           </div>
         </div>
 
@@ -76,13 +106,13 @@
           <div class="phoneWidget phoneRadioWidget">
             <div class="pRadioHeader">
               <div class="pRadioStation">
-                <span class="cassetteIcon">📼</span>
+                <span class="cassetteIcon"><svg class="svgIcon" width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3" y="6" width="18" height="12" rx="2" stroke="currentColor" stroke-width="2"/><circle cx="8.5" cy="12" r="2" stroke="currentColor" stroke-width="1.8"/><circle cx="15.5" cy="12" r="2" stroke="currentColor" stroke-width="1.8"/></svg></span>
                 <span class="radioStation">MIAMI NIGHTS FM</span>
                 <span id="ytRadioLiveDot" class="liveDot"></span>
               </div>
               <div class="pRadioActions">
-                <button id="bYtToggleVideo" title="Toggle CRT Visualizer" class="tinyBtn">📺</button>
-                <button id="bYtCustom" title="Custom YouTube URL / ID" class="tinyBtn">🔗</button>
+                <button id="bYtToggleVideo" title="Toggle CRT Visualizer" class="tinyBtn">CRT</button>
+                <button id="bYtCustom" title="Custom YouTube URL / ID" class="tinyBtn">URL</button>
               </div>
             </div>
             <div class="radioTrackRow">
@@ -93,9 +123,8 @@
               <button id="bYtPlay" class="gold" title="Play / Pause">▶</button>
               <button id="bYtNext" title="Next Track">⏭</button>
               <div class="radioVolWrap" title="Volume">
-                <span>🔈</span>
+                <span>VOL</span>
                 <input id="ytVolSlider" type="range" min="0" max="100" value="70">
-                <span>🔊</span>
               </div>
             </div>
             <div class="radioEqRow" id="ytEqBars">
@@ -114,27 +143,27 @@
             <div class="sectionTitle">ARCADE &amp; HANGOUT APPS</div>
             <div class="phoneAppsGrid">
               <button id="pAppArcade" class="phoneAppIcon" title="Arcade OS: Play, Quests &amp; Contests (Tab)">
-                <div class="appGlyph" style="background:linear-gradient(135deg,#ffb84a,#ea580c)">🏆</div>
+                <div class="appGlyph" style="background:linear-gradient(135deg,#ffb84a,#ea580c)"><svg class="svgIcon" width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M7 4h10v5a5 5 0 0 1-10 0V4Z" stroke="currentColor" stroke-width="2"/><path d="M7 6H4v2a3 3 0 0 0 3 3M17 6h3v2a3 3 0 0 1-3 3M12 14v4M8 20h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
                 <span>Compete</span>
               </button>
               <button id="pAppCard" class="phoneAppIcon" title="Your Holographic Player Card (C)">
-                <div class="appGlyph" style="background:linear-gradient(135deg,#54e0ee,#2563eb)">🪪</div>
+                <div class="appGlyph" style="background:linear-gradient(135deg,#54e0ee,#2563eb)"><svg class="svgIcon" width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="2.5" y="4.5" width="19" height="15" rx="2.5" stroke="currentColor" stroke-width="2"/><circle cx="8.5" cy="11" r="2.2" stroke="currentColor" stroke-width="1.8"/><path d="M14 9.5h4.5M14 13h4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div>
                 <span>My Card</span>
               </button>
               <button id="pAppDress" class="phoneAppIcon" title="Wardrobe / Avatar Customizer">
-                <div class="appGlyph" style="background:linear-gradient(135deg,#ff4d9a,#c026d3)">👕</div>
+                <div class="appGlyph" style="background:linear-gradient(135deg,#ff4d9a,#c026d3)"><svg class="svgIcon" width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M8.5 4 12 6l3.5-2 4.5 3.2-2.2 3.8-2.3-1.2V20H8.5V9.8L6.2 11 4 7.2 8.5 4Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></div>
                 <span>Style</span>
               </button>
               <button id="pAppBuild" class="phoneAppIcon" title="Decorator Mode (B)">
-                <div class="appGlyph" style="background:linear-gradient(135deg,#35e0ff,#0284c7)">🔨</div>
+                <div class="appGlyph" style="background:linear-gradient(135deg,#35e0ff,#0284c7)"><svg class="svgIcon" width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="m14.5 6.5 3 3-9.5 9.5-3-3 9.5-9.5Z" stroke="currentColor" stroke-width="2"/><path d="m13 5 2.5-2.5 5 5L18 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
                 <span>Builder</span>
               </button>
               <button id="pAppView" class="phoneAppIcon" title="Toggle 3D / Isometric View (V)">
-                <div class="appGlyph" style="background:linear-gradient(135deg,#a855f7,#4f46e5)">📐</div>
-                <span id="pAppViewLabel">ISO</span>
+                <div class="appGlyph" style="background:linear-gradient(135deg,#a855f7,#4f46e5)"><svg class="svgIcon" width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z" stroke="currentColor" stroke-width="2"/><path d="m12 12 8-4.5M12 12 4 7.5M12 12v9" stroke="currentColor" stroke-width="1.8"/></svg></div>
+                <span id="pAppViewLabel">3D</span>
               </button>
               <button id="pAppQual" class="phoneAppIcon" title="Graphics Quality Settings">
-                <div class="appGlyph" style="background:linear-gradient(135deg,#f43f5e,#be123c)">✨</div>
+                <div class="appGlyph" style="background:linear-gradient(135deg,#f43f5e,#be123c)"><svg class="svgIcon" width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="m12 2.5 2.1 5.4 5.4 2.1-5.4 2.1-2.1 5.4-2.1-5.4-5.4-2.1 5.4-2.1L12 2.5Z" stroke="currentColor" stroke-width="2"/></svg></div>
                 <span id="pAppQualLabel">High</span>
               </button>
             </div>
@@ -145,14 +174,14 @@
             <div class="sectionTitle">SPACES &amp; SIDE ACTIVITIES</div>
             <div class="phoneWarpList">
               <button id="bTravelArcade" class="pWarpTile active" title="Instant Warp (1)">
-                <span class="pWarpIcon">🕹️</span>
+                <span class="pWarpIcon"><svg class="svgIcon" width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 8h12a4 4 0 0 1 3.9 4.9l-1.1 5a2.6 2.6 0 0 1-4.4 1.2L14.2 17H9.8l-2.2 2.1a2.6 2.6 0 0 1-4.4-1.2l-1.1-5A4 4 0 0 1 6 8Z" stroke="currentColor" stroke-width="2"/></svg></span>
                 <div class="pWarpText">
                   <b>Arcade Lounge</b>
                   <span>Main Competitive Floor &nbsp;·&nbsp; [1]</span>
                 </div>
               </button>
               <button id="bTravelLoft" class="pWarpTile" title="Instant Warp (2)">
-                <span class="pWarpIcon">🏠</span>
+                <span class="pWarpIcon"><svg class="svgIcon" width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V10Z" stroke="currentColor" stroke-width="2"/></svg></span>
                 <div class="pWarpText">
                   <b>Personal Loft</b>
                   <span>Trophy Case &amp; Penthouse &nbsp;·&nbsp; [2]</span>
@@ -163,7 +192,7 @@
               <summary>More District &amp; Sandbox Modes</summary>
               <div class="phoneWarpList" style="margin-top:8px;">
                 <button id="bTravelMoon" class="pWarpTile" title="Instant Warp (3)">
-                  <span class="pWarpIcon">🌕</span>
+                  <span class="pWarpIcon"><svg class="svgIcon" width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="2"/><circle cx="9.5" cy="10" r="1.5" stroke="currentColor" stroke-width="1.5"/></svg></span>
                   <div class="pWarpText">
                     <b>Moon Base Diorama</b>
                     <span>Artemis Outpost &nbsp;·&nbsp; [3]</span>
@@ -172,11 +201,11 @@
               </div>
               <div class="phoneAppsGrid" style="margin-top:8px;">
                 <button id="pAppMap" class="phoneAppIcon" title="Twilight District City Map">
-                  <div class="appGlyph" style="background:linear-gradient(135deg,#fbbf24,#ea580c)">🗺️</div>
+                  <div class="appGlyph" style="background:linear-gradient(135deg,#fbbf24,#ea580c)"><svg class="svgIcon" width="18" height="18" viewBox="0 0 24 24" fill="none"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" stroke="currentColor" stroke-width="2"/></svg></div>
                   <span>City Map</span>
                 </button>
                 <button id="pAppGigs" class="phoneAppIcon" title="Freelance Gigs &amp; Jobs">
-                  <div class="appGlyph" style="background:linear-gradient(135deg,#4ade80,#16a34a)">💼</div>
+                  <div class="appGlyph" style="background:linear-gradient(135deg,#4ade80,#16a34a)"><svg class="svgIcon" width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3" y="7" width="18" height="13" rx="2" stroke="currentColor" stroke-width="2"/><path d="M9 7V5h6v2" stroke="currentColor" stroke-width="2"/></svg></div>
                   <span>Gigs</span>
                 </button>
               </div>
@@ -197,8 +226,8 @@
               <button id="bRotR" class="pHardwareBtn" title="Rotate Right (E)">↻ E</button>
               <button id="bZin" class="pHardwareBtn" title="Zoom In">+</button>
               <button id="bZout" class="pHardwareBtn" title="Zoom Out">−</button>
-              <button id="bFollow" class="pHardwareBtn" title="Follow Player (F)">🎯 Follow</button>
-              <button id="bMute" class="pHardwareBtn" title="Sound Mute">🔊</button>
+              <button id="bFollow" class="pHardwareBtn" title="Follow Player (F)">LOCK [F]</button>
+              <button id="bMute" class="pHardwareBtn" title="Sound Mute">AUDIO</button>
             </div>
           </div>
 
@@ -245,8 +274,8 @@
     <span class="jukeSub">Miami Nights FM & Retro Synth</span>
   </div>
   <div class="jukeTabs">
-    <button id="bJukeTabMiami" class="jukeTab on">🌴 Miami Nights</button>
-    <button id="bJukeTabSynth" class="jukeTab">🎹 Lounge Synths</button>
+    <button id="bJukeTabMiami" class="jukeTab on">MIAMI NIGHTS FM</button>
+    <button id="bJukeTabSynth" class="jukeTab">LOUNGE SYNTHS</button>
   </div>
   <div id="jukeList"></div>
   <button id="jukeClose" class="wide" style="margin-top:10px;">Close</button>
@@ -275,11 +304,11 @@
 </div>
 <div id="prizeModal" class="hidden">
   <div class="prizeCard">
-    <div id="prizeSparkles">✨ YOU WON! ✨</div>
-    <div id="prizeIcon">🎁</div>
+    <div id="prizeSparkles">PRIZE UNLOCKED</div>
+    <div id="prizeIcon"><svg class="svgIcon" width="42" height="42" viewBox="0 0 24 24" fill="none"><rect x="3.5" y="8" width="17" height="4" rx="1" stroke="#ffb84a" stroke-width="2"/><path d="M5 12h14v8a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-8ZM12 8v13" stroke="#ffb84a" stroke-width="2"/></svg></div>
     <h3 id="prizeName">Prize Name</h3>
     <p id="prizeDesc">Details about the prize</p>
-    <button id="prizeClaim" class="gold wide">Awesome!</button>
+    <button id="prizeClaim" class="gold wide">CLAIM REWARD</button>
   </div>
 </div>
 <div id="shopModal" class="hidden">
@@ -288,7 +317,7 @@
       <b>TICKET PRIZE COUNTER</b>
       <button id="shopClose">✕ Close</button>
     </div>
-    <div class="shopBalance">Your balance: 🎟️ <b id="shopTickets">0</b> Tickets &nbsp;·&nbsp; 🪙 <b id="shopCoins">0</b> Coins</div>
+    <div class="shopBalance">Your balance: <b id="shopTickets">0</b> Tickets &nbsp;·&nbsp; <b id="shopCoins">0</b> Coins</div>
     <div id="shopItems"></div>
   </div>
 </div>
@@ -304,10 +333,10 @@
         <p class="tPrompt">&gt; AWAITING COMMAND DIRECTIVE...</p>
       </div>
       <div id="termButtons">
-        <button class="tCmdBtn" data-act="phase">⚡ SHIFT REALITY</button>
-        <button class="tCmdBtn" data-act="relic">👑 EXTRACT VOID CROWN</button>
-        <button class="tCmdBtn" data-act="warp">🌀 SUBSPACE WARP</button>
-        <button class="tCmdBtn" data-act="logs">📜 CLASSIFIED LOGS</button>
+        <button class="tCmdBtn" data-act="phase">[01] SHIFT REALITY</button>
+        <button class="tCmdBtn" data-act="relic">[02] EXTRACT VOID CROWN</button>
+        <button class="tCmdBtn" data-act="warp">[03] SUBSPACE WARP</button>
+        <button class="tCmdBtn" data-act="logs">[04] CLASSIFIED LOGS</button>
       </div>
     </div>
   </div>
@@ -315,7 +344,7 @@
 <div id="mapModal" class="hidden">
   <div class="mapCard">
     <div class="mapHeader">
-      <b>✦ THE TWILIGHT DISTRICT · MAP</b>
+      <b>THE TWILIGHT DISTRICT // TACTICAL MAP</b>
       <button id="mapClose">✕ Close</button>
     </div>
     <div id="mapCanvasWrap">
@@ -335,7 +364,7 @@
   <div class="dialogueCard">
     <div class="dialogueHeader">
       <div class="dialogueProfile">
-        <span id="diagIcon">👤</span>
+        <span id="diagIcon">ID</span>
         <div>
           <b id="diagName">Citizen</b>
           <span id="diagRole" class="pill">Role</span>
@@ -349,11 +378,11 @@
     </div>
     <div id="diagSpeech" class="diagBubble">"Hey neighbor! Welcome to the district."</div>
     <div class="diagActions">
-      <button id="bDiagTalk" class="gold">💬 Chat</button>
-      <button id="bDiagCompliment">✨ Compliment</button>
-      <button id="bDiagGift">🎁 Gift Soda (10🪙)</button>
-      <button id="bDiagGossip">🔍 Ask Rumors</button>
-      <button id="bDiagInviteLoft" class="gold hidden">🏠 Invite to My Loft</button>
+      <button id="bDiagTalk" class="gold">Chat</button>
+      <button id="bDiagCompliment">Compliment</button>
+      <button id="bDiagGift">Gift Soda (10 Coins)</button>
+      <button id="bDiagGossip">Ask Rumors</button>
+      <button id="bDiagInviteLoft" class="gold hidden">Invite to My Loft</button>
     </div>
   </div>
 </div>
@@ -367,11 +396,11 @@
       <button id="pcClose">✕ Log Off</button>
     </div>
     <div class="pcNav">
-      <button class="pcTab on" data-pctab="matrix">💻 NetRunner Matrix</button>
-      <button class="pcTab" data-pctab="lofi">🎵 Lo-Fi Beats</button>
-      <button class="pcTab" data-pctab="inbox">📨 District Chatter</button>
-      <button class="pcTab" data-pctab="status">🏠 Unit 101 Status</button>
-      <button class="pcTab" data-pctab="moonbase">🚀 Artemis Moon Base</button>
+      <button class="pcTab on" data-pctab="matrix">NetRunner Matrix</button>
+      <button class="pcTab" data-pctab="lofi">Lo-Fi Beats</button>
+      <button class="pcTab" data-pctab="inbox">District Chatter</button>
+      <button class="pcTab" data-pctab="status">Unit 101 Status</button>
+      <button class="pcTab" data-pctab="moonbase">Artemis Moon Base</button>
     </div>
     <div class="pcScreen">
       <!-- NetRunner Matrix -->
@@ -384,7 +413,7 @@
         <div id="matrixCodeTarget" class="matrixTarget">TARGET: [ 7F : 3A : 9C ]</div>
         <div id="matrixGrid" class="matrixGrid"></div>
         <div class="matrixFooter">
-          <span id="matrixRewardInfo">Reward: +40🪙 Coins · +15🎟️ Tickets</span>
+          <span id="matrixRewardInfo">Reward: +40 Coins · +15 Tickets</span>
           <button id="bMatrixHack" class="gold">Execute Hack</button>
         </div>
       </div>
@@ -414,14 +443,13 @@
             <div class="sStat"><span>Grid Power</span><b>100% ONLINE</b></div>
             <div class="sStat"><span>Atmosphere</span><b>VIBRANT / COZY</b></div>
           </div>
-          <button id="bLoftDecorate" class="gold" style="margin-top:14px;width:100%;">🛠️ Decorate Unit 101 (Build Mode)</button>
+          <button id="bLoftDecorate" class="gold" style="margin-top:14px;width:100%;">Decorate Unit 101 (Build Mode)</button>
         </div>
       </div>
       <!-- Artemis Moon Base Tab -->
       <div id="pcTabMoonbase" class="pcTabContent hidden">
         <div class="statusCard">
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
-            <div style="font-size:32px;">🌕</div>
             <div>
               <h3 style="margin:0;color:#54e0ee;">Artemis Outpost Alpha · Lunar Diorama</h3>
               <p style="margin:3px 0 0;color:var(--mute);font-size:12px;">Mare Tranquillitatis Sector 7 · Telemetry: 100% ONLINE</p>
@@ -436,7 +464,7 @@
             The tabletop diorama observation deck provides real-time orbital telemetry, living habitat operations, elevated transit monorail simulation, and suborbital flight control.
           </p>
           <div class="row" style="margin-top:16px;">
-            <button id="bWarpMoonBase" class="gold wide" style="padding:12px;font-size:14px;font-weight:700;">🌌 Warp to Artemis Moon Base Diorama</button>
+            <button id="bWarpMoonBase" class="gold wide" style="padding:12px;font-size:14px;font-weight:700;">Warp to Artemis Moon Base Diorama</button>
           </div>
         </div>
       </div>
@@ -446,7 +474,7 @@
 <div id="gigModal" class="hidden">
   <div class="gigCard">
     <div class="gigHeader">
-      <b>✦ DISTRICT GIGS & OPPORTUNITIES</b>
+      <b>DISTRICT GIGS &amp; OPPORTUNITIES</b>
       <button id="gigClose">✕ Close</button>
     </div>
     <div id="gigList"></div>
@@ -455,13 +483,13 @@
 <div id="seedModal" class="hidden">
   <div class="seedCard">
     <div class="seedHeader">
-      <b>✦ PROCEDURAL DISTRICT GENERATOR</b>
+      <b>PROCEDURAL DISTRICT GENERATOR</b>
       <button id="seedClose">✕ Close</button>
     </div>
     <p style="color:var(--mute);margin:8px 0 14px;font-size:12px;">Generate a new procedural district with distinct layouts, citizens, and life-sim activities.</p>
     <div class="row">
       <input id="seedInput" type="text" placeholder="Enter seed (e.g. cyber99, 1337, cozy)" style="flex:1;">
-      <button id="bSeedRandom">🎲 Random</button>
+      <button id="bSeedRandom">Random</button>
     </div>
     <div class="row" style="margin-top:14px;justify-content:flex-end;">
       <button id="bSeedClassic">Classic Lounge</button>
@@ -482,11 +510,11 @@
       <span class="pill mbPill">TABLETOP DIORAMA</span>
     </div>
     <div class="mbTelemetry">
-      <span>🛰️ ORBIT: 384,400 KM</span>
-      <span id="mbTimeDisplay">🕒 LUNAR T+ 12:00</span>
-      <span id="mbEarthPhase">🌍 EARTHRISE: 82%</span>
+      <span>ORBIT: 384,400 KM</span>
+      <span id="mbTimeDisplay">LUNAR T+ 12:00</span>
+      <span id="mbEarthPhase">EARTHRISE: 82%</span>
     </div>
-    <button id="bMbReturn" class="gold mbReturnBtn">🚪 Return to Unit 101</button>
+    <button id="bMbReturn" class="gold mbReturnBtn">Return to Unit 101</button>
   </div>
 
   <!-- Bottom Sci-Fi Toolbar -->
@@ -499,7 +527,7 @@
     <div class="mbToolDivider"></div>
 
     <div class="mbTimeGroup" title="Scrub Lunar Day/Night Cycle">
-      <span class="mbIcon">☀️</span>
+      <span class="mbIcon">SOL</span>
       <input id="mbTimeSlider" type="range" min="0" max="100" value="25">
       <button id="bMbDayCycle" class="tinyBtn on" title="Toggle Auto Day/Night Cycle">CYCLE</button>
     </div>
@@ -507,22 +535,22 @@
     <div class="mbToolDivider"></div>
 
     <div class="mbActionGroup">
-      <button id="bMbLaunch" class="mbActionBtn gold" title="Launch Orbital Rocket (L)">🚀 Launch</button>
-      <button id="bMbHopper" class="mbActionBtn" title="Call Suborbital Hopper (H)">🛸 Hopper</button>
-      <button id="bMbPatrol" class="mbActionBtn" title="Deploy Rover Patrol">🚙 Patrol</button>
-      <button id="bMbMeteors" class="mbActionBtn" title="Trigger Meteor Shower">🌠 Meteors</button>
-      <button id="bMbStorm" class="mbActionBtn" title="Trigger Electrostatic Dust Storm">🌪 Dust Storm</button>
+      <button id="bMbLaunch" class="mbActionBtn gold" title="Launch Orbital Rocket (L)">Launch</button>
+      <button id="bMbHopper" class="mbActionBtn" title="Call Suborbital Hopper (H)">Hopper</button>
+      <button id="bMbPatrol" class="mbActionBtn" title="Deploy Rover Patrol">Patrol</button>
+      <button id="bMbMeteors" class="mbActionBtn" title="Trigger Meteor Shower">Meteors</button>
+      <button id="bMbStorm" class="mbActionBtn" title="Trigger Electrostatic Dust Storm">Dust Storm</button>
     </div>
 
     <div class="mbToolDivider"></div>
 
     <div class="mbToggleGroup">
-      <button id="bMbLights" class="on" title="Toggle Perimeter Floodlights (T)">💡</button>
-      <button id="bMbLabels" class="on" title="Toggle 3D Module Labels">🏷️</button>
-      <button id="bMbShadows" class="on" title="Toggle Soft Lunar Shadows">🌑</button>
-      <button id="bMbSound" class="on" title="Toggle Sound Mute">🔊</button>
-      <button id="bMbResetCam" title="Reset to Tabletop Overview (1)">🎥</button>
-      <button id="bMbHelp" title="Hotkeys & Controls Help">❓</button>
+      <button id="bMbLights" class="on" title="Toggle Perimeter Floodlights (T)">LGT</button>
+      <button id="bMbLabels" class="on" title="Toggle 3D Module Labels">LBL</button>
+      <button id="bMbShadows" class="on" title="Toggle Soft Lunar Shadows">SHD</button>
+      <button id="bMbSound" class="on" title="Toggle Sound Mute">SND</button>
+      <button id="bMbResetCam" title="Reset to Tabletop Overview (1)">CAM</button>
+      <button id="bMbHelp" title="Hotkeys & Controls Help">?</button>
     </div>
   </div>
 
@@ -530,7 +558,7 @@
   <div id="moonbaseHelpModal" class="hidden">
     <div class="mbHelpCard">
       <div class="mbHelpHeader">
-        <b>✦ ARTEMIS OUTPOST DIORAMA CONTROLS</b>
+        <b>ARTEMIS OUTPOST DIORAMA CONTROLS</b>
         <button id="bMbHelpClose">✕</button>
       </div>
       <div class="mbHelpBody">
@@ -539,7 +567,7 @@
         <div class="mbHelpRow"><kbd>Mouse Wheel</kbd><span>Zoom (from Astronaut closeup to full Room)</span></div>
         <div class="mbHelpRow"><kbd>Double-Click</kbd><span>Reset Camera to Front Tabletop Edge</span></div>
         <div class="mbHelpRow"><kbd>1 .. 6</kbd><span>Preset Views (Overview, Rocket, Domes, Tower, Train, Crater)</span></div>
-        <div class="mbHelpRow"><kbd>Click Structures</kbd><span>Interactive actions & Smooth fly-to-inspect</span></div>
+        <div class="mbHelpRow"><kbd>Click Structures</kbd><span>Interactive actions &amp; Smooth fly-to-inspect</span></div>
         <div class="mbHelpRow"><kbd>L / H / T / P</kbd><span>Launch / Hopper / Lights / Pause Hotkeys</span></div>
         <div class="mbHelpRow"><kbd>Esc</kbd><span>Return to Skyline Micro-Lofts Unit 101</span></div>
       </div>
@@ -561,12 +589,31 @@
 <div id="vsOverlay" class="hidden"></div>
 <div id="resultOverlay" class="hidden"></div>
 
-<!-- Interactive 3D Holographic Player Card Modal -->
+<!-- In-World 3D Hero Character Inspection & Tactical Competitor Dossier -->
 <div id="cardModal" class="hidden">
   <div class="cardModalBackdrop" id="cardModalBackdrop"></div>
   <div class="cardModalBox">
-    <div id="cardModalHost"></div>
-    <div class="cardModalActions" id="cardModalActions"></div>
+    <div class="cardShowcaseRow">
+      <!-- Left: Live 3D Lounge Hero Framing Reticle + Emote & Camera Orbit Controls -->
+      <div class="cardAvatarStage" id="cardAvatarStage">
+        <div class="heroTargetHeader">
+          <span class="heroLockTag"><span class="pcPulseDot"></span>3D HERO LOCK // LIVE FEED</span>
+          <span class="cardRotateHint">Q / E or Drag to Orbit 3D Camera</span>
+        </div>
+        <div id="cardAvatarBubble" class="cardAvatarBubble hidden"></div>
+        <canvas id="cardAvatarCanvas" width="320" height="400"></canvas>
+        <div class="heroViewportFrame">
+          <div class="hvCorner tl"></div><div class="hvCorner tr"></div>
+          <div class="hvCorner bl"></div><div class="hvCorner br"></div>
+        </div>
+        <div id="cardEmoteBar" class="cardEmoteBar"></div>
+      </div>
+      <!-- Right: Tactical Competitor Dossier + Match Challenges -->
+      <div class="cardModalRight">
+        <div id="cardModalHost"></div>
+        <div class="cardModalActions" id="cardModalActions"></div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -575,16 +622,29 @@
   <div class="arcadeCard">
     <div class="arcadeHeader">
       <div class="arcadeHeaderTitle">
-        <b>🏆 TWILIGHT ARCADE OS</b>
+        <svg class="svgIcon" width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M7 4h10v5a5 5 0 0 1-10 0V4Z" stroke="#ffb84a" stroke-width="2" fill="rgba(255,184,74,0.18)"/><path d="M7 6H4v2a3 3 0 0 0 3 3M17 6h3v2a3 3 0 0 1-3 3M12 14v4M8 20h8" stroke="#ffb84a" stroke-width="2" stroke-linecap="round"/></svg>
+        <b>TWILIGHT // ARCADE OS</b>
         <span id="arcadeAuthBadge" class="arcadeAuthBadge">LOCAL</span>
       </div>
       <div class="arcadeTabs">
-        <button class="arcTab on" data-arctab="play">🕹️ Play Now</button>
-        <button class="arcTab" data-arctab="quests">🎯 Daily Quests</button>
-        <button class="arcTab" data-arctab="contests">⚔️ Contests &amp; Pots</button>
-        <button class="arcTab" data-arctab="card">🪪 My Card</button>
+        <button class="arcTab on" data-arctab="play">
+          <svg class="svgIcon" width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M6 8h12a4 4 0 0 1 3.9 4.9l-1.1 5a2.6 2.6 0 0 1-4.4 1.2L14.2 17H9.8l-2.2 2.1a2.6 2.6 0 0 1-4.4-1.2l-1.1-5A4 4 0 0 1 6 8Z" stroke="currentColor" stroke-width="2"/></svg>
+          <span>PLAY NOW</span>
+        </button>
+        <button class="arcTab" data-arctab="quests">
+          <svg class="svgIcon" width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="2.2" fill="currentColor"/></svg>
+          <span>BOUNTIES</span>
+        </button>
+        <button class="arcTab" data-arctab="contests">
+          <svg class="svgIcon" width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="m14.5 17.5-11-11V3h3.5l11 11M9.5 17.5l11-11V3H17L6 14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <span>CONTESTS &amp; POTS</span>
+        </button>
+        <button class="arcTab" data-arctab="card">
+          <svg class="svgIcon" width="15" height="15" viewBox="0 0 24 24" fill="none"><rect x="2.5" y="4.5" width="19" height="15" rx="2.5" stroke="currentColor" stroke-width="2"/><circle cx="8.5" cy="11" r="2.2" stroke="currentColor" stroke-width="1.8"/><path d="M14 9.5h4.5M14 13h4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          <span>LICENSE</span>
+        </button>
       </div>
-      <button id="arcadeClose">✕</button>
+      <button id="arcadeClose" class="hudCloseBtn" title="Close [Esc]">✕</button>
     </div>
     <div id="arcadeBody" class="arcadeBody"></div>
   </div>

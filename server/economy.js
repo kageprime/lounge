@@ -258,6 +258,9 @@ export function createEconomy(db, opts = {}) {
         const res = contests.joinContest(String(msg.contestId || ''), uid);
         const wallet = getWallet(uid);
         pushState(session, uid, false);
+        if (opts.onContestLocked && res.contest && res.contest.status === 'locked' && !res.already) {
+          try { opts.onContestLocked(res.contest); } catch (_) {}
+        }
         return { ok: true, ...res, wallet };
       }
 

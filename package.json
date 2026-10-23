@@ -4,6 +4,6 @@
   "type": "module",
   "scripts": {
     "start": "node serve.mjs",
-    "test": "node --test test/lounge.test.js test/procgen.test.js test/economy.test.js"
+    "test": "node --test test/lounge.test.js test/procgen.test.js test/economy.test.js test/matchmaker.test.js"
   }
 }

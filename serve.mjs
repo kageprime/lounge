@@ -10,6 +10,7 @@ import { LOUNGE } from './src/layout.js';
 import { spawnBots } from './src/bots.js';
 import { openDb } from './server/db.js';
 import { createEconomy, ECONOMY_COMMANDS } from './server/economy.js';
+import { createMatchmaker, MATCH_COMMANDS } from './server/matchmaker.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const port = Number(process.argv[2]) || 8000;
@@ -29,14 +30,31 @@ const MIME = {
   '.mp3': 'audio/mpeg'
 };
 
-// Authoritative SQLite Economy & Headless World Simulation
+// Authoritative SQLite Economy, Matchmaker & Headless World Simulation
+const clients = new Map();
 const db = openDb();
-const economy = createEconomy(db);
+let matchmaker = null;
+const economy = createEconomy(db, {
+  onContestLocked(contest) {
+    if (!matchmaker || !Array.isArray(contest.players) || contest.players.length < 2) return;
+    const c1 = matchmaker.clientsByUser.get(contest.players[0]);
+    const c2 = matchmaker.clientsByUser.get(contest.players[1]);
+    if (c1 && c2) {
+      matchmaker.startSession({
+        game: contest.game,
+        p1: c1,
+        p2: c2,
+        contestId: contest.id
+      });
+    }
+  }
+});
+matchmaker = createMatchmaker(economy, {
+  getClientById: id => clients.get(id)
+});
 const serverWorld = new World(LOUNGE);
 spawnBots(serverWorld, 4, 1989);
 setInterval(() => serverWorld.step(1 / 30), 1000 / 30);
-
-const clients = new Map();
 
 serverWorld.on(event => {
   for (const client of clients.values()) {
@@ -184,6 +202,17 @@ server.on('upgrade', (req, socket) => {
           const cmd = JSON.parse(payload.toString('utf8'));
           if (cmd && ECONOMY_COMMANDS.has(cmd.t)) {
             const reply = economy.handle(client, cmd);
+            if (cmd.t === 'auth' && reply.ok && reply.user) {
+              client.name = reply.user.name;
+              matchmaker.registerClient(client);
+            }
+            if (cmd.rid != null) {
+              client.send({ type: 'reply', rid: cmd.rid, ...reply });
+            } else {
+              client.send({ type: 'reply', ...reply });
+            }
+          } else if (cmd && MATCH_COMMANDS.has(cmd.t)) {
+            const reply = matchmaker.handle(client, cmd);
             if (cmd.rid != null) {
               client.send({ type: 'reply', rid: cmd.rid, ...reply });
             } else {
@@ -203,6 +232,7 @@ server.on('upgrade', (req, socket) => {
   });
 
   const cleanup = () => {
+    matchmaker.unregisterClient(client);
     clients.delete(clientId);
     if (personId) {
       serverWorld.command({ t: 'leave', id: personId });

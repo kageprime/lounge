@@ -30,6 +30,12 @@ export class PoolRenderer {
     this.offsetX = 0;
     this.offsetY = 0;
 
+    // Broadcast Camera Rig ('dynamic' | 'overhead' | 'close')
+    this.camMode = 'dynamic';
+    this.camZoom = 1.0;
+    this.camX = TABLE_W / 2;
+    this.camY = TABLE_H / 2;
+
     // Felt theme: 'classic' | 'neon' | 'purple' | 'onyx'
     this.theme = 'classic';
     this.feltColors = {
@@ -63,25 +69,70 @@ export class PoolRenderer {
     this.offsetY = (winH - this.totalH * this.scale) / 2;
   }
 
-  // Convert screen coordinates to table coordinates
+  // Convert screen coordinates to table coordinates (accounting for dynamic camera zoom & pan)
   screenToTable(sx, sy) {
-    const tx = (sx - this.offsetX) / this.scale - this.borderThick;
-    const ty = (sy - this.offsetY) / this.scale - this.borderThick;
+    const winW = this.canvas.clientWidth || window.innerWidth;
+    const winH = this.canvas.clientHeight || window.innerHeight;
+    const cx = winW / 2;
+    const cy = winH / 2;
+    const ux = (sx - cx) / this.camZoom + cx + (this.camX - TABLE_W / 2) * this.scale;
+    const uy = (sy - cy) / this.camZoom + cy + (this.camY - TABLE_H / 2) * this.scale;
+    const tx = (ux - this.offsetX) / this.scale - this.borderThick;
+    const ty = (uy - this.offsetY) / this.scale - this.borderThick;
     return { x: tx, y: ty };
+  }
+
+  _updateCamera(game) {
+    let tgtZoom = 1.0;
+    let tgtX = TABLE_W / 2;
+    let tgtY = TABLE_H / 2;
+    const cb = game.cueBall;
+
+    if (this.camMode === 'close' && cb && !cb.potted) {
+      tgtZoom = 1.22;
+      tgtX = cb.x * 0.65 + (TABLE_W / 2) * 0.35;
+      tgtY = cb.y * 0.65 + (TABLE_H / 2) * 0.35;
+    } else if (this.camMode === 'dynamic' && cb && !cb.potted) {
+      const pull = Math.max(game.pullBackPower || 0, game.state === 'charging' ? game.power : 0);
+      if (pull > 0.04 && (game.state === 'aiming' || game.state === 'charging')) {
+        tgtZoom = 1.0 + Math.min(0.24, pull * 0.24);
+        tgtX = cb.x * 0.6 + (cb.x + Math.cos(game.aimAngle) * 110) * 0.4;
+        tgtY = cb.y * 0.6 + (cb.y + Math.sin(game.aimAngle) * 110) * 0.4;
+      } else if (game.state === 'rolling') {
+        tgtZoom = 1.07;
+        tgtX = cb.x * 0.4 + (TABLE_W / 2) * 0.6;
+        tgtY = cb.y * 0.4 + (TABLE_H / 2) * 0.6;
+      }
+    }
+
+    tgtX = Math.max(120, Math.min(TABLE_W - 120, tgtX));
+    tgtY = Math.max(80, Math.min(TABLE_H - 80, tgtY));
+    this.camZoom += (tgtZoom - this.camZoom) * 0.12;
+    this.camX += (tgtX - this.camX) * 0.12;
+    this.camY += (tgtY - this.camY) * 0.12;
   }
 
   render(game) {
     const ctx = this.ctx;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const winW = this.canvas.width / dpr;
+    const winH = this.canvas.height / dpr;
+
+    this._updateCamera(game);
 
     ctx.save();
     ctx.scale(dpr, dpr);
 
     // Clear background
     ctx.fillStyle = '#0a0a14';
-    ctx.fillRect(0, 0, this.canvas.width / dpr, this.canvas.height / dpr);
+    ctx.fillRect(0, 0, winW, winH);
 
     ctx.save();
+    // Apply dynamic broadcast camera zoom & focus
+    ctx.translate(winW / 2, winH / 2);
+    ctx.scale(this.camZoom, this.camZoom);
+    ctx.translate(-winW / 2 - (this.camX - TABLE_W / 2) * this.scale, -winH / 2 - (this.camY - TABLE_H / 2) * this.scale);
+
     ctx.translate(this.offsetX, this.offsetY);
     ctx.scale(this.scale, this.scale);
 

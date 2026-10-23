@@ -11,8 +11,13 @@ import { mulberry32 } from './rng.js';
 
 const $ = (id) => document.getElementById(id);
 const qs = new URLSearchParams(location.search);
+if (qs.has('autostart') || qs.has('mp') || qs.has('demo')) {
+  const mEl = $('menu');
+  if (mEl) mEl.hidden = true;
+}
 const G = window.G = {
   cfg: { seats: ['human', 'cpu', 'cpu', 'cpu'], diff: 'normal' },
+  customNames: null,
   st: null, tray: null, stage: null, mode: 'menu', paused: false, run: 0, speed: 1, clock: 0,
   timers: [], waits: [], rollReq: null, charge: null, canRoll: false, pickMoves: null, pickResolve: null,
 };
@@ -48,6 +53,12 @@ $('start').onclick = () => { audio.unlock(); startGame(); };
 
 // ------------------------------------------------------------------ HUD
 const names = () => {
+  if (G.online && Array.isArray(G.online.players)) {
+    const p1 = G.online.players.find(p => p.seat === 1);
+    const p2 = G.online.players.find(p => p.seat === 2);
+    return [p1?.name || 'Player 1', p2?.name || 'Player 2', '', ''];
+  }
+  if (Array.isArray(G.customNames)) return G.customNames;
   const humans = G.st.seats.filter((s) => s === 'human').length;
   return G.st.seats.map((s, i) => (s === 'off' ? '' : s === 'cpu' ? `${COLOR_NAMES[i]}` : humans === 1 ? 'You' : COLOR_NAMES[i]));
 };
@@ -55,18 +66,20 @@ let hudCache = {};
 function setHtml(id, html) { if (hudCache[id] !== html) { hudCache[id] = html; $(id).innerHTML = html; } }
 function updateHud() {
   const s = G.st; if (!s) return;
+  const nmList = names();
   setHtml('cards', s.seats.map((seat, c) => {
     if (seat === 'off') return '';
     const pips = s.tokens[c].map((p) => `<i class="pip ${p === P_HOME ? 'h' : p >= 0 ? 'b' : ''}"></i>`).join('');
-    const who = seat === 'cpu' ? `CPU ${G.cfg.diff}` : 'HUMAN';
-    return `<div class="pc ${s.turn === c && s.phase !== 'over' ? 'active' : ''}" style="--c:${COLOR_CSS[c]}"><div class="t"><span>${COLOR_NAMES[c].toUpperCase()}</span><small>${who}</small></div><div class="pips">${pips}</div></div>`;
+    const displayNm = (nmList[c] || COLOR_NAMES[c]).toUpperCase();
+    const who = G.online ? (c === G.online.myColor ? 'YOU · LIVE' : 'RIVAL · LIVE') : seat === 'cpu' ? (G.customNames?.[c] ? `CHALLENGER · ${G.cfg.diff.toUpperCase()}` : `CPU ${G.cfg.diff}`) : 'YOU';
+    return `<div class="pc ${s.turn === c && s.phase !== 'over' ? 'active' : ''}" style="--c:${COLOR_CSS[c]}"><div class="t"><span>${displayNm}</span><small>${who}</small></div><div class="pips">${pips}</div></div>`;
   }).join(''));
-  const c = s.turn, seat = s.seats[c], nm = COLOR_NAMES[c].toUpperCase();
+  const c = s.turn, seat = s.seats[c], nm = (nmList[c] || COLOR_NAMES[c]).toUpperCase();
   let what;
   if (s.phase === 'over') what = 'GAME OVER';
-  else if (G.pickMoves) what = seat === 'human' ? 'PICK A PAWN' : 'CPU THINKING';
+  else if (G.pickMoves) what = seat === 'human' ? 'PICK A PAWN' : 'THINKING';
   else if (G.canRoll) what = 'YOUR THROW';
-  else what = seat === 'cpu' ? 'CPU ROLLING' : 'ROLLING';
+  else what = seat === 'cpu' ? 'THROWING DIE' : 'ROLLING';
   setHtml('turn', `<span class="sw" style="background:${COLOR_CSS[c]}"></span><span>${nm}</span><small>${what}</small>`);
   const k = (x) => `<kbd>${x}</kbd>`;
   let h;
@@ -74,7 +87,7 @@ function updateHud() {
   else if (G.pickMoves && seat === 'human') h = `${k('1')}-${k('4')} or click a glowing pawn to move it`;
   else h = '<span class="dim">&nbsp;</span>';
   setHtml('hints', `${h}<div class="dim">${k('C')} camera &nbsp; ${k('F')} fast &nbsp; ${k('M')} sound &nbsp; ${k('ESC')} pause</div>`);
-  setHtml('camtag', `CAMERA <b>${CAM_LABEL[G.stage.rig.mode].toUpperCase()}</b>${G.speed > 1 ? ' &nbsp;<b>FAST</b>' : ''}`);
+  setHtml('camtag', `🎥 CAM: <b>${CAM_LABEL[G.stage.rig.mode].toUpperCase()}</b>${G.speed > 1 ? ' &nbsp;<b>FAST</b>' : ''}`);
   $('turn').style.setProperty('--c', COLOR_CSS[c]);
 }
 
@@ -283,7 +296,7 @@ function showOver() {
   }).join('');
   $('over').hidden = false; $('hud').hidden = true; $('dietag').hidden = true;
   // Standard lounge result contract (only meaningful when embedded). Ranked = exactly one human vs CPUs.
-  if (window.parent && window.parent !== window) {
+  if (!G.online && window.parent && window.parent !== window) {
     const humans = s.seats.filter((x) => x === 'human').length, cpus = s.seats.filter((x) => x === 'cpu').length;
     try {
       window.parent.postMessage({
@@ -293,6 +306,90 @@ function showOver() {
     } catch (e) { /* standalone */ }
   }
 }
+
+// ------------------------------------------------------------------ Online 1v1 Multiplayer Bridge (Phase 3)
+function startOnlineLudo(session, mySeat) {
+  G.run++; cancelAll(); gameNo++;
+  G.online = { sessionId: session.id, mySeat, myColor: mySeat - 1, players: session.players || [] };
+  G.tray?.dispose(); G.tray = new DieTray(RAPIER, { seed: 1989 });
+  G.st = newGame(['human', 'human', 'off', 'off'], 0);
+  if (session.snapshot) Object.assign(G.st, session.snapshot);
+  G.mode = 'play'; G.paused = false; G.pickMoves = G.pickResolve = null; G.canRoll = false; G.charge = null; G.rollReq = null; hudCache = {};
+  ['menu', 'over', 'pause'].forEach((id) => { $(id).hidden = true; });
+  $('hud').hidden = false; $('flash').hidden = true; $('dietag').hidden = true;
+  G.stage.setAllP(G.st.tokens); G.stage.setSelectable([]); G.stage.setActive([0, 1]); G.stage.setDie(null);
+  G.stage.rig.set('auto');
+  syncOnlineLudoTurn();
+}
+
+function syncOnlineLudoTurn() {
+  if (!G.online || !G.st) return;
+  const s = G.st;
+  G.stage.setTurnColor(s.turn);
+  G.stage.setAllP(s.tokens);
+  const isMyTurn = G.online.mySeat > 0 && s.turn === G.online.myColor;
+  if (s.phase === 'roll') {
+    G.canRoll = isMyTurn;
+    $('rollbtn').hidden = !isMyTurn;
+    G.pickMoves = null;
+    G.stage.setSelectable([]);
+    if (isMyTurn) {
+      G.rollReq = null;
+      until(() => G.rollReq != null).then(() => {
+        $('rollbtn').hidden = true;
+        window.parent.postMessage({
+          type: 'mp_action',
+          cmd: { t: 'match.roll', sessionId: G.online.sessionId, power: G.rollReq }
+        }, '*');
+      }).catch(() => {});
+    }
+  } else if (s.phase === 'pick') {
+    $('rollbtn').hidden = true;
+    const moves = dedupe(s.moves || []);
+    if (isMyTurn) {
+      G.pickMoves = moves;
+      G.stage.setSelectable(moves);
+      G.pickResolve = (m) => {
+        G.pickMoves = null;
+        G.stage.setSelectable([]);
+        window.parent.postMessage({
+          type: 'mp_action',
+          cmd: { t: 'match.move', sessionId: G.online.sessionId, token: m.token }
+        }, '*');
+      };
+    } else {
+      G.pickMoves = null;
+      G.stage.setSelectable([]);
+    }
+  }
+  updateHud();
+}
+
+window.addEventListener('message', async (ev) => {
+  const d = ev.data;
+  if (!d || typeof d !== 'object') return;
+  if (d.type === 'mp_init' && d.session) {
+    until(() => !!G.stage).then(() => startOnlineLudo(d.session, d.mySeat)).catch(() => {});
+  } else if (d.type === 'mp_event' && d.event && G.online && d.event.sessionId === G.online.sessionId) {
+    const e = d.event;
+    if (e.type === 'match.rolled') {
+      G.lastRoll = { face: e.face, by: e.color };
+      audio.play('throw');
+      flash(`ROLLED ${e.face}`, e.phaseAfterRoll === 'nomove' ? 'No legal move' : '', COLOR_CSS[e.color]);
+      if (e.autoMove) {
+        await G.stage.movePawn(e.autoMove.color, e.autoMove.token, e.autoMove.from, e.autoMove.to);
+      }
+      if (e.snapshot) Object.assign(G.st, e.snapshot);
+      syncOnlineLudoTurn();
+    } else if (e.type === 'match.moved') {
+      if (e.move) {
+        await G.stage.movePawn(e.move.color, e.move.token, e.move.from, e.move.to);
+      }
+      if (e.snapshot) Object.assign(G.st, e.snapshot);
+      syncOnlineLudoTurn();
+    }
+  }
+});
 
 // ------------------------------------------------------------------ per-frame
 const tagEls = [];
@@ -363,9 +460,33 @@ async function boot() {
   G.stage = new Stage($('gl')).init();
   G.start = (seats, diff) => { if (seats) G.cfg.seats = seats; if (diff) G.cfg.diff = diff; startGame(); };
   G.toMenu = toMenu; G.showOver = showOver; G.togglePause = togglePause; G.choose = choose; G.chargeStart = chargeStart; G.chargeRelease = chargeRelease;
-  toMenu();
+  const ct = $('camtag');
+  if (ct) {
+    ct.style.cursor = 'pointer';
+    ct.style.pointerEvents = 'auto';
+    ct.title = 'Click to switch camera angle (C)';
+    ct.onclick = () => { G.stage.rig.next(); audio.unlock(); audio.play('tick'); updateHud(); };
+  }
   $('loading').hidden = true;
   requestAnimationFrame(frame);
-  if (qs.has('demo')) { G.cfg.seats = qs.get('demo') === 'cpu' ? [...PRESETS.watch] : [...PRESETS.cpu]; startGame(); }
+  if (window.parent && window.parent !== window) {
+    window.parent.postMessage({ type: 'mp_ready', game: 'ludo' }, '*');
+  }
+  if (qs.has('mp')) {
+    // Wait for mp_init from parent without showing the offline setup menu
+    $('menu').hidden = true;
+  } else if (qs.has('autostart')) {
+    const p1 = qs.get('p1') || 'You';
+    const p2 = qs.get('p2') || 'Opponent';
+    G.customNames = [p1, '', p2, ''];
+    G.cfg.seats = [...PRESETS.duel];
+    if (qs.get('diff') && DIFFS.includes(qs.get('diff'))) G.cfg.diff = qs.get('diff');
+    startGame();
+  } else if (qs.has('demo')) {
+    G.cfg.seats = qs.get('demo') === 'cpu' ? [...PRESETS.watch] : [...PRESETS.cpu];
+    startGame();
+  } else {
+    toMenu();
+  }
 }
 boot().catch((e) => { console.error(e); $('loading').innerHTML = 'Failed to start:<br>' + String(e.message || e); });

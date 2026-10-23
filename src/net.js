@@ -10,6 +10,7 @@ export class NetClient {
     this.onStatus = options.onStatus || (() => {});
     this.ws = null;
     this.connected = false;
+    this.clientId = null;
     this._seq = 0;
     this._pending = new Map();
   }
@@ -28,6 +29,9 @@ export class NetClient {
       this.ws.onmessage = (evt) => {
         try {
           const msg = JSON.parse(evt.data);
+          if (msg && msg.type === 'init' && msg.clientId) {
+            this.clientId = msg.clientId;
+          }
           if (msg && msg.type === 'reply' && msg.rid != null && this._pending.has(msg.rid)) {
             const p = this._pending.get(msg.rid);
             this._pending.delete(msg.rid);
