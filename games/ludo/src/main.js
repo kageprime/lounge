@@ -282,6 +282,16 @@ function showOver() {
     return `<div class="os ${c === w ? 'win' : ''}"><span class="sw" style="background:${COLOR_CSS[c]}"></span><span>${(nm[c] || COLOR_NAMES[c]).toUpperCase()}</span><span>${homeCount(s, c)}/4</span><span>${st.captures}</span><span>${st.captured}</span><span>${st.sixes}</span></div>`;
   }).join('');
   $('over').hidden = false; $('hud').hidden = true; $('dietag').hidden = true;
+  // Standard lounge result contract (only meaningful when embedded). Ranked = exactly one human vs CPUs.
+  if (window.parent && window.parent !== window) {
+    const humans = s.seats.filter((x) => x === 'human').length, cpus = s.seats.filter((x) => x === 'cpu').length;
+    try {
+      window.parent.postMessage({
+        type: 'game_result', game: 'ludo', mode: humans === 1 ? 'vs_cpu' : 'hotseat',
+        ranked: humans === 1 && cpus >= 1, won: s.seats[w] === 'human' && humans === 1
+      }, '*');
+    } catch (e) { /* standalone */ }
+  }
 }
 
 // ------------------------------------------------------------------ per-frame

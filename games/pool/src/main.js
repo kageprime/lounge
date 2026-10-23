@@ -542,12 +542,15 @@ class BilliardsApp {
 
         // Post message to parent lounge
         if (window.parent && window.parent !== window) {
+          // Standard lounge result contract: the game reports WHAT happened, the lounge/server decides rewards.
+          // Only VS CPU is ranked; hot-seat 2-player and practice can't be farmed for rewards.
           window.parent.postMessage({
-            type: 'pool_game_result',
-            score: this.game.score,
+            type: 'game_result',
+            game: 'pool',
+            mode: this.game.mode,
+            ranked: this.game.mode === '8ball_cpu',
             won: this.game.winner === 1,
-            tickets: this.game.winner === 1 ? 40 : 10,
-            coins: this.game.winner === 1 ? 25 : 5
+            score: this.game.score
           }, '*');
         }
       }

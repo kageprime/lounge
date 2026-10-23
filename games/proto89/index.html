@@ -393,7 +393,7 @@ document.getElementById('bClaimReward').onclick = () => {
   document.getElementById('bClaimReward').textContent = 'REWARD TRANSFERRED';
   document.getElementById('bClaimReward').disabled = true;
   if (window.parent) {
-    window.parent.postMessage({ type: 'gameReward', tickets: 150, coins: 50 }, '*');
+    window.parent.postMessage({ type: 'game_result', game: 'proto89', mode: 'puzzle', ranked: true, won: true }, '*');
   }
 };
 

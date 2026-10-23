@@ -1,4 +1,4 @@
-// Zero-dependency static server + authoritative WebSocket multiplayer sync
+// Zero-dependency static server + authoritative WebSocket multiplayer & SQLite economy
 // Run: node serve.mjs [port]  (default 8000)
 import http from 'node:http';
 import fs from 'node:fs';
@@ -8,6 +8,8 @@ import { fileURLToPath } from 'node:url';
 import { World } from './src/sim.js';
 import { LOUNGE } from './src/layout.js';
 import { spawnBots } from './src/bots.js';
+import { openDb } from './server/db.js';
+import { createEconomy, ECONOMY_COMMANDS } from './server/economy.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const port = Number(process.argv[2]) || 8000;
@@ -27,7 +29,9 @@ const MIME = {
   '.mp3': 'audio/mpeg'
 };
 
-// Authoritative Headless World Simulation
+// Authoritative SQLite Economy & Headless World Simulation
+const db = openDb();
+const economy = createEconomy(db);
 const serverWorld = new World(LOUNGE);
 spawnBots(serverWorld, 4, 1989);
 setInterval(() => serverWorld.step(1 / 30), 1000 / 30);
@@ -85,6 +89,8 @@ server.on('upgrade', (req, socket) => {
 
   const client = {
     id: clientId,
+    userId: null,
+    clawCredits: 0,
     socket,
     send(data) {
       if (socket.destroyed) return;
@@ -95,7 +101,10 @@ server.on('upgrade', (req, socket) => {
       } else if (payload.length <= 65535) {
         header = Buffer.from([0x81, 126, (payload.length >> 8) & 0xff, payload.length & 0xff]);
       } else {
-        return;
+        header = Buffer.alloc(10);
+        header[0] = 0x81;
+        header[1] = 127;
+        header.writeBigUInt64BE(BigInt(payload.length), 2);
       }
       try {
         socket.write(Buffer.concat([header, payload]));
@@ -126,6 +135,10 @@ server.on('upgrade', (req, socket) => {
   let buf = Buffer.alloc(0);
   socket.on('data', chunk => {
     buf = Buffer.concat([buf, chunk]);
+    if (buf.length > 512 * 1024) {
+      socket.destroy();
+      return;
+    }
     while (buf.length >= 2) {
       const byte1 = buf[0], byte2 = buf[1];
       const opcode = byte1 & 0x0f;
@@ -138,8 +151,13 @@ server.on('upgrade', (req, socket) => {
         offset = 4;
       } else if (len === 127) {
         if (buf.length < 10) break;
-        buf = buf.subarray(10);
-        continue;
+        const bigLen = buf.readBigUInt64BE(2);
+        if (bigLen > 256n * 1024n) {
+          socket.destroy();
+          return;
+        }
+        len = Number(bigLen);
+        offset = 10;
       }
       const maskLen = masked ? 4 : 0;
       if (buf.length < offset + maskLen + len) break;
@@ -164,11 +182,20 @@ server.on('upgrade', (req, socket) => {
         }
         try {
           const cmd = JSON.parse(payload.toString('utf8'));
-          if (cmd.t === 'join') {
-            personId = cmd.person?.id || clientId;
+          if (cmd && ECONOMY_COMMANDS.has(cmd.t)) {
+            const reply = economy.handle(client, cmd);
+            if (cmd.rid != null) {
+              client.send({ type: 'reply', rid: cmd.rid, ...reply });
+            } else {
+              client.send({ type: 'reply', ...reply });
+            }
+          } else if (cmd && cmd.t === 'join') {
+            personId = clientId;
             serverWorld.command({ t: 'join', person: { ...cmd.person, id: personId } });
-          } else {
-            serverWorld.command({ id: personId || clientId, ...cmd });
+          } else if (cmd && cmd.t) {
+            // Authoritative client identity: never allow client payload to spoof another person's id
+            const targetPropId = cmd.propId ?? ((cmd.t === 'moveProp' || cmd.t === 'removeProp') ? cmd.id : undefined);
+            serverWorld.command({ ...cmd, id: personId || clientId, propId: targetPropId });
           }
         } catch (e) {}
       }
@@ -186,4 +213,4 @@ server.on('upgrade', (req, socket) => {
   socket.on('close', cleanup);
 });
 
-server.listen(port, () => console.log(`Neon Arcade Lounge -> http://localhost:${port} (WebSocket multiplayer active)`));
+server.listen(port, () => console.log(`Neon Arcade Lounge -> http://localhost:${port} (WebSocket multiplayer + SQLite economy active)`));
