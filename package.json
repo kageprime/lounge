@@ -1,1 +1,9 @@
-{ "name": "neon-arcade-lounge", "version": "0.1.0", "type": "module", "scripts": { "start": "node serve.mjs", "test": "node --test test/lounge.test.js" } }
+{
+  "name": "neon-arcade-lounge",
+  "version": "0.2.0",
+  "type": "module",
+  "scripts": {
+    "start": "node serve.mjs",
+    "test": "node --test test/lounge.test.js test/procgen.test.js test/economy.test.js"
+  }
+}

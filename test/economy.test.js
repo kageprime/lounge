@@ -71,7 +71,7 @@ test('ledger: double-entry invariant, non-negative balances, and idempotency', (
   // Overdraft rejected
   assert.throws(() => {
     ledger.burn(u1.id, 'COIN', 999, 'overdraft');
-  }, /insufficient_funds/);
+  }, { code: 'insufficient_funds' });
   assert.equal(ledger.balance(userAccount(u1.id, 'COIN')), 60);
 
   const audit = ledger.auditInvariant();
@@ -152,12 +152,12 @@ test('compliance: real money (USD/NGN) requires skill game + KYC + age + allowed
   // Luck game (Ludo) refused for NGN even when realMoney is enabled
   assert.throws(() => {
     contests.createContest({ game: 'ludo', currency: 'NGN', entryFee: 50000, maxPlayers: 2 });
-  }, /not_skill_game/);
+  }, { code: 'not_skill_game' });
 
   // Unverified user refused NGN mint
   assert.throws(() => {
     ledger.mint(u.id, 'NGN', 100000, 'deposit');
-  }, /compliance/);
+  }, { code: 'compliance' });
 
   // Verify user KYC + age + country NG
   db.prepare('UPDATE users SET kyc_status = ?, age_verified = 1, country = ? WHERE id = ?').run('verified', 'NG', u.id);
